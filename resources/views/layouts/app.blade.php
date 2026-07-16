@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
 </head>
 <body>
-@php($errorCount = \App\Models\Invoice::whereIn('status', \App\Enums\InvoiceStatus::erroneous())->count())
 <header class="topbar">
     <span class="brand">Faktúrovod</span>
     <nav>

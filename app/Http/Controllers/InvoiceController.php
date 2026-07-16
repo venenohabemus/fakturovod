@@ -95,9 +95,13 @@ class InvoiceController extends Controller
             return back()->with('error', 'Import zlyhal: '.$exception->getMessage());
         }
 
+        $failed = 0;
         foreach ($result['created'] as $invoice) {
             $pipeline->process($invoice);
             $pipeline->refreshStatus($invoice);
+            if ($invoice->status->severity() === 'error') {
+                $failed++;
+            }
         }
 
         $message = sprintf(
@@ -105,6 +109,12 @@ class InvoiceController extends Controller
             count($result['created']),
             count($result['duplicates'])
         );
+        if ($failed > 0) {
+            return redirect()->route('errors.index')->with(
+                'error',
+                $message." {$failed} z nich skončilo s chybou — tu je fronta chýb."
+            );
+        }
 
         return redirect()->route('invoices.index')->with('status', $message);
     }
@@ -113,9 +123,11 @@ class InvoiceController extends Controller
     {
         abort_if($invoice->ubl_xml === null, 404, 'Faktúra zatiaľ nemá vygenerované UBL.');
 
+        $fileName = preg_replace('/[^A-Za-z0-9._-]/', '_', $invoice->number ?? $invoice->external_id);
+
         return response($invoice->ubl_xml, 200, [
             'Content-Type' => 'application/xml; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename="'.($invoice->number ?? $invoice->external_id).'.xml"',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'.xml"',
         ]);
     }
 }

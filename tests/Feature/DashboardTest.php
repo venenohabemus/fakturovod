@@ -62,6 +62,34 @@ class DashboardTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_login_is_rate_limited_after_five_attempts(): void
+    {
+        $user = User::factory()->create();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post('/login', ['email' => $user->email, 'password' => 'zle-heslo']);
+        }
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'zle-heslo'])
+            ->assertStatus(429);
+    }
+
+    public function test_upload_with_failures_redirects_to_error_queue(): void
+    {
+        $mapping = $this->sampleMapping();
+
+        $file = UploadedFile::fake()->createWithContent(
+            'export.csv',
+            "cislo;vystavena;splatnost;odberatel;ico_odb;icdph_odb;ulica;mesto;psc;polozka;mj;mnozstvo;cena;dph\n"
+            ."FA-B-1;99.07.2026;15.07.2026;Alfa;1;SK1;U;M;811;Tovar;ks;1;10,00;23\n"
+        );
+
+        $this->actingAs($this->user)
+            ->post('/faktury/import', ['export' => $file, 'mapping_id' => $mapping->id])
+            ->assertRedirect('/chyby')
+            ->assertSessionHas('error');
+    }
+
     public function test_invoice_list_shows_invoices_with_slovak_statuses(): void
     {
         $this->sampleMapping();

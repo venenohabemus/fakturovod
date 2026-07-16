@@ -273,3 +273,21 @@ pre.xml {
 
 /* --- Pagination ------------------------------------------------------------------ */
 .pagination-wrap { margin-top: 1rem; }
+
+.pagination { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+
+.page-link {
+    display: inline-block;
+    min-width: 2.1rem;
+    text-align: center;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+a.page-link:hover { border-color: var(--accent); text-decoration: none; }
+.page-link.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-link.disabled { color: var(--muted); background: transparent; }
