@@ -164,7 +164,16 @@ class InvoicePipeline
             ]);
             $invoice->transitionTo(InvoiceStatus::Mapped, 'Dáta úspešne namapované na kanonický model.');
         } catch (MappingException $exception) {
-            $invoice->fail('Chyba mapovania: '.$exception->getMessage());
+            $invoice->update([
+                'validation_report' => array_merge(
+                    $invoice->validation_report ?? [],
+                    ['mapping' => $exception->errors]
+                ),
+            ]);
+            $invoice->fail(
+                'Chyba mapovania: '.$exception->getMessage(),
+                ['errors' => $exception->errors]
+            );
         }
     }
 

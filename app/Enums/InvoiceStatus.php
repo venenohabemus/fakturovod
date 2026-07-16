@@ -45,6 +45,45 @@ enum InvoiceStatus: string
     }
 
     /**
+     * Slovak label shown in the dashboard.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Received => 'Prijatá',
+            self::Mapped => 'Namapovaná',
+            self::Validated => 'Zvalidovaná',
+            self::Queued => 'V rade',
+            self::Sent => 'Odoslaná',
+            self::Delivered => 'Doručená',
+            self::Rejected => 'Odmietnutá',
+            self::Failed => 'Chybná',
+        };
+    }
+
+    /**
+     * Badge style bucket for the dashboard: ok | progress | error.
+     */
+    public function severity(): string
+    {
+        return match ($this) {
+            self::Delivered => 'ok',
+            self::Rejected, self::Failed => 'error',
+            default => 'progress',
+        };
+    }
+
+    /**
+     * Statuses shown in the error queue.
+     *
+     * @return list<string>
+     */
+    public static function erroneous(): array
+    {
+        return [self::Failed->value, self::Rejected->value];
+    }
+
+    /**
      * Statuses the outbound pipeline still has work to do on.
      *
      * @return list<string>

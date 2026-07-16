@@ -103,6 +103,50 @@ class InvoiceMapperTest extends TestCase
         (new InvoiceMapper())->map($this->definition(), $rows);
     }
 
+    public function test_all_errors_of_an_invoice_are_collected_at_once(): void
+    {
+        // Error queue must show every problem in one pass, not fail-fast.
+        $rows = [
+            $this->row([
+                'cislo' => 'FA-1', 'datum' => '99.7.2026', 'odberatel' => '',
+                'polozka' => 'A', 'mnozstvo' => '', 'cena' => '45 EUR', 'dph' => '23',
+            ], 'riadok 2'),
+        ];
+
+        try {
+            (new InvoiceMapper())->map($this->definition(), $rows);
+            $this->fail('Očakávala sa MappingException.');
+        } catch (MappingException $exception) {
+            $this->assertCount(4, $exception->errors);
+            $this->assertStringContainsString('Faktúra obsahuje 4 chyby.', $exception->getMessage());
+
+            $joined = implode("\n", $exception->errors);
+            $this->assertStringContainsString("nezodpovedá formátu dátumu 'd.m.Y'", $joined);
+            $this->assertStringContainsString("poľa 'customer.name'", $joined);
+            $this->assertStringContainsString("poľa 'quantity'", $joined);
+            $this->assertStringContainsString("'45 EUR' poľa 'lines.unit_price' nie je platné číslo", $joined);
+        }
+    }
+
+    public function test_single_error_message_is_not_prefixed_with_a_count(): void
+    {
+        $rows = [
+            $this->row(['cislo' => 'FA-1', 'datum' => '1.7.2026', 'odberatel' => 'Alfa',
+                'polozka' => 'A', 'mnozstvo' => '', 'cena' => '10,00', 'dph' => '23'], 'riadok 5'),
+        ];
+
+        try {
+            (new InvoiceMapper())->map($this->definition(), $rows);
+            $this->fail('Očakávala sa MappingException.');
+        } catch (MappingException $exception) {
+            $this->assertCount(1, $exception->errors);
+            $this->assertSame(
+                "Chýba povinná hodnota poľa 'quantity' na položke faktúry (riadok 5).",
+                $exception->getMessage()
+            );
+        }
+    }
+
     public function test_empty_input_throws(): void
     {
         $this->expectException(MappingException::class);

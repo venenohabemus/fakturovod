@@ -97,29 +97,48 @@ class InvoiceMapper
     }
 
     /**
+     * Maps one invoice, collecting ALL problems before failing — the error
+     * queue must show everything at once so the client fixes the file in
+     * a single pass, not one error at a time.
+     *
      * @param non-empty-list<Record> $group
      */
     private function mapInvoice(array $definition, array $group): array
     {
         $header = $group[0];
+        $errors = [];
 
         $invoice = [
-            'number' => $this->requiredValue($definition, 'number', $header),
-            'issue_date' => $this->requiredValue($definition, 'issue_date', $header),
-            'currency' => $this->requiredValue($definition, 'currency', $header),
-            'supplier' => $this->mapParty($definition, 'supplier', $header),
-            'customer' => $this->mapParty($definition, 'customer', $header),
-            'lines' => array_map(fn (Record $record) => $this->mapLine($definition, $record), $group),
+            'number' => $this->attempt($errors, fn () => $this->requiredValue($definition, 'number', $header)),
+            'issue_date' => $this->attempt($errors, fn () => $this->requiredValue($definition, 'issue_date', $header)),
+            'currency' => $this->attempt($errors, fn () => $this->requiredValue($definition, 'currency', $header)),
+            'supplier' => $this->attempt($errors, fn () => $this->mapParty($definition, 'supplier', $header)),
+            'customer' => $this->attempt($errors, fn () => $this->mapParty($definition, 'customer', $header)),
+            'lines' => [],
         ];
+
+        foreach ($group as $record) {
+            $line = $this->attempt($errors, fn () => $this->mapLine($definition, $record));
+            if ($line !== null) {
+                $invoice['lines'][] = $line;
+            }
+        }
 
         foreach (['due_date', 'buyer_reference'] as $optionalField) {
             if (!isset($definition[$optionalField])) {
                 continue;
             }
-            $value = $this->resolver->resolve($definition[$optionalField], $header, $optionalField);
+            $value = $this->attempt(
+                $errors,
+                fn () => $this->resolver->resolve($definition[$optionalField], $header, $optionalField)
+            );
             if ($value !== null) {
                 $invoice[$optionalField] = $value;
             }
+        }
+
+        if ($errors !== []) {
+            throw MappingException::withErrors($errors);
         }
 
         return $invoice;
@@ -130,23 +149,33 @@ class InvoiceMapper
         $partyDefinition = $definition[$partyKey]
             ?? throw new MappingException("V mapovacej definícii chýba sekcia '{$partyKey}'.");
 
+        $errors = [];
         $party = [];
         foreach (self::PARTY_FIELDS as $field) {
+            $required = in_array($field, ['name', 'country'], true);
+
             if (!isset($partyDefinition[$field])) {
+                if ($required) {
+                    $errors[] = "V mapovacej definícii chýba pole '{$partyKey}.{$field}'.";
+                }
                 continue;
             }
-            $value = $this->resolver->resolve($partyDefinition[$field], $record, "{$partyKey}.{$field}");
+
+            $errorsBefore = count($errors);
+            $value = $this->attempt(
+                $errors,
+                fn () => $this->resolver->resolve($partyDefinition[$field], $record, "{$partyKey}.{$field}")
+            );
+
             if ($value !== null) {
                 $party[$field] = $value;
+            } elseif ($required && count($errors) === $errorsBefore) {
+                $errors[] = "Chýba povinná hodnota poľa '{$partyKey}.{$field}' ({$record->describe()}).";
             }
         }
 
-        foreach (['name', 'country'] as $requiredField) {
-            if (empty($party[$requiredField])) {
-                throw new MappingException(
-                    "Chýba povinná hodnota poľa '{$partyKey}.{$requiredField}' ({$record->describe()})."
-                );
-            }
+        if ($errors !== []) {
+            throw MappingException::withErrors($errors);
         }
 
         return $party;
@@ -157,24 +186,43 @@ class InvoiceMapper
         $fields = $definition['lines']['fields']
             ?? throw new MappingException("V mapovacej definícii chýba sekcia 'lines.fields'.");
 
+        $errors = [];
         $line = [];
         foreach (self::LINE_REQUIRED_FIELDS as $field) {
-            $spec = $fields[$field]
-                ?? throw new MappingException("V mapovacej definícii chýba pole 'lines.fields.{$field}'.");
-            $line[$field] = $this->resolver->resolve($spec, $record, "lines.{$field}")
-                ?? throw new MappingException(
-                    "Chýba povinná hodnota poľa '{$field}' na položke faktúry ({$record->describe()})."
-                );
+            $spec = $fields[$field] ?? null;
+            if ($spec === null) {
+                $errors[] = "V mapovacej definícii chýba pole 'lines.fields.{$field}'.";
+                continue;
+            }
+            $errorsBefore = count($errors);
+            $value = $this->attempt(
+                $errors,
+                fn () => $this->resolver->resolve($spec, $record, "lines.{$field}")
+            );
+            if ($value === null) {
+                if (count($errors) === $errorsBefore) {
+                    $errors[] = "Chýba povinná hodnota poľa '{$field}' na položke faktúry ({$record->describe()}).";
+                }
+                continue;
+            }
+            $line[$field] = $value;
         }
 
         foreach (self::LINE_OPTIONAL_FIELDS as $field) {
             if (!isset($fields[$field])) {
                 continue;
             }
-            $value = $this->resolver->resolve($fields[$field], $record, "lines.{$field}");
+            $value = $this->attempt(
+                $errors,
+                fn () => $this->resolver->resolve($fields[$field], $record, "lines.{$field}")
+            );
             if ($value !== null) {
                 $line[$field] = $value;
             }
+        }
+
+        if ($errors !== []) {
+            throw MappingException::withErrors($errors);
         }
 
         return $line;
@@ -189,5 +237,25 @@ class InvoiceMapper
             ?? throw new MappingException(
                 "Chýba povinná hodnota poľa '{$field}' ({$record->describe()})."
             );
+    }
+
+    /**
+     * Runs one mapping step; on failure appends its error message(s) to the
+     * collection and returns null so the remaining steps still run.
+     *
+     * @template T
+     * @param list<string> $errors
+     * @param callable(): T $step
+     * @return T|null
+     */
+    private function attempt(array &$errors, callable $step): mixed
+    {
+        try {
+            return $step();
+        } catch (MappingException $exception) {
+            array_push($errors, ...$exception->errors);
+
+            return null;
+        }
     }
 }
