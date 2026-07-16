@@ -189,7 +189,7 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 - [x] Trhová analýza, výber nápadu, cenník, unit economics, ePošťák stratégia (júl 2026, chat s Claude)
 - [x] Git nainštalovaný, Claude Code funkčný, projekt `faktura` založený
 - [x] Prečítaná dokumentácia ePošťák Connector (/api/docs/enterprise) — base URL sandbox `https://dev.epostak.sk/api/v1`, OAuth client_credentials (token 15 min), send cez `POST /documents/send` (JSON alebo raw UBL `xml`), stav `GET /documents/{id}/status`, idempotencia hlavičkou; sk_int_* kľúč cieli firmu cez `X-Firm-Id`
-- [~] Sandbox: prvá UBL faktúra odoslaná na demo participanta — adaptér hotový a otestovaný, pipeline beží až po auth; **blokované na demo client_secret** (v docs maskovaný `sk_int_t…c282`, treba skopírovať z portálu do `EPOSTAK_CLIENT_SECRET` v .env)
+- [x] Sandbox: prvá UBL faktúra odoslaná na demo participanta — **16. 7. 2026 status `delivered`** (`php artisan postar:send --status`); demo client_secret je v lokálnom .env (EPOSTAK_CLIENT_SECRET, mimo gitu)
 - [ ] 5 rozhovorov s účtovníčkami (validácia + leady)
 - [ ] Súhlas zamestnávateľa
 - [ ] Živnosť ohlásená
@@ -200,7 +200,7 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 - [x] Mapping engine — základ (JSON definície, from/const/default/map, transformácie date+decimal, slovenské chybové hlášky s kontextom riadku, testy) · [ ] verzovanie definícií · [ ] fixtures: dobropis, oslobodenie, cudzia mena, zálohová (bežná + viac sadzieb DPH hotové)
 - [x] UBL 2.1 builder — Invoice (EN 16931 / Peppol BIS 3.0, sumy a DPH rozpis cez brick/math) · [ ] CreditNote/dobropis
 - [x] Validátor: XSD (OASIS schémy vendorované v resources/schemas) · [ ] schematron sidecar (KoSIT — na stroji chýba Java/Docker) · [ ] SK biznis kontroly + slovenské hlášky
-- [~] ePošťák Connector adaptér: send + stavy hotové (`PostarAdapterInterface`, `EpostakConnectorAdapter`, token caching, mapovanie chýb na slovenské hlášky, `php artisan postar:send`, 7 testov cez HTTP fake) · [ ] outbox/box · [ ] ostrý beh cez sandbox (čaká na client_secret)
+- [~] ePošťák Connector adaptér: send + stavy hotové (`PostarAdapterInterface`, `EpostakConnectorAdapter`, token caching, mapovanie chýb na slovenské hlášky, validačné chyby zo status endpointu, `php artisan postar:send`) · [x] ostrý beh cez sandbox (delivered) · [ ] outbox/box
 - [ ] Dashboard: login, faktúry, fronta chýb, JSON editor mapovania
 - [ ] Archív (object storage) + audit events + metering
 - [ ] E-mail alerting
@@ -224,7 +224,8 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 ### Denník
 - **07/2026:** Rozhodnutie ísť do projektu. Stratégia: ePošťák sandbox teraz, white-label pri prvom klientovi. — *(sem pripisovať: dátum + čo sa spravilo/rozhodlo)*
 - **15.–16. 7. 2026:** Dev prostredie (PHP 8.3.32 + Composer 2.10.2 cez winget), Laravel 13 skeleton, git repo, initial commit. UBL 2.1 builder + XSD validátor + `php artisan ubl:hello`. Mapping engine: CSV/XML → kanonický model → UBL (`php artisan invoice:convert`), ukážkový legacy export prechádza end-to-end; 36 testov zelených. Prijatý brief v2 — ePošťák Connector ako primárny backend, vlastná značka, white-label stratégia.
-- **16. 7. 2026:** Naštudovaná dokumentácia ePošťák Enterprise/Connector API (sandbox `dev.epostak.sk`, OAuth client_credentials, `/documents/send`, `/documents/{id}/status`, idempotencia, X-Firm-Id). Postavená poštár vrstva: `PostarAdapterInterface` + `EpostakConnectorAdapter` (token caching, slovenské chybové hlášky), `postar:send`, konfig `config/postar.php` + EPOSTAK_* v .env. 43 testov zelených. Ostrý test odoslania do sandboxu blokovaný na demo `client_secret` (maskovaný v docs — treba skopírovať z portálu).
+- **16. 7. 2026:** Naštudovaná dokumentácia ePošťák Enterprise/Connector API (sandbox `dev.epostak.sk`, OAuth client_credentials, `/documents/send`, `/documents/{id}/status`, idempotencia, X-Firm-Id). Postavená poštár vrstva: `PostarAdapterInterface` + `EpostakConnectorAdapter` (token caching, slovenské chybové hlášky), `postar:send`, konfig `config/postar.php` + EPOSTAK_* v .env. 43 testov zelených.
+- **16. 7. 2026 (večer): 🎉 PRVÁ FAKTÚRA DORUČENÁ CEZ SANDBOX.** Postup: (1) PHP na Windows chýbal CA bundle → stiahnutý cacert.pem, nastavené curl.cainfo/openssl.cafile v php.ini; (2) sandbox vrátil 2 Peppol validačné chyby → doplnené `cbc:BuyerReference` (BT-10) a `cbc:EndpointID` (BT-34/49, z `peppol_id` v tvare scheme:value) do buildera, mappera aj vzoriek; (3) `postar:send --status` → **SENT → delivered**. Poznatky: sandbox deduplikuje podľa čísla faktúry (číslo vzorky je odteraz unikátne per beh); dodávateľa v dokumente prepíše podľa autentifikovanej firmy (X-Firm-Id); validačné chyby vracia v `validationResult.errors` status endpointu → premietnuté do `DeliveryStatus->validationErrors`.
 
 ---
 

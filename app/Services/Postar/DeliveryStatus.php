@@ -7,6 +7,9 @@ namespace App\Services\Postar;
  */
 class DeliveryStatus
 {
+    /**
+     * @param list<string> $validationErrors provider-reported Peppol/EN 16931 rule failures
+     */
     public function __construct(
         public readonly string $documentId,
         public readonly string $status,
@@ -14,6 +17,7 @@ class DeliveryStatus
         public readonly ?string $sentAt = null,
         public readonly ?string $deliveredAt = null,
         public readonly ?string $invoiceResponseStatus = null,
+        public readonly array $validationErrors = [],
     ) {
     }
 
@@ -29,13 +33,22 @@ class DeliveryStatus
 
     public static function fromResponse(string $documentId, array $body): self
     {
+        $validationErrors = [];
+        foreach ($body['validationResult']['errors'] ?? [] as $error) {
+            $validationErrors[] = trim(
+                ($error['message'] ?? 'Neznáma validačná chyba')
+                .(isset($error['location']) ? ' ['.$error['location'].']' : '')
+            );
+        }
+
         return new self(
             documentId: $documentId,
             status: (string) ($body['status'] ?? 'UNKNOWN'),
-            messageId: isset($body['messageId']) ? (string) $body['messageId'] : null,
+            messageId: $body['messageId'] ?? $body['peppolMessageId'] ?? null,
             sentAt: $body['sentAt'] ?? null,
             deliveredAt: $body['deliveredAt'] ?? null,
             invoiceResponseStatus: $body['invoiceResponseStatus'] ?? null,
+            validationErrors: $validationErrors,
         );
     }
 }

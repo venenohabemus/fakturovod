@@ -27,7 +27,7 @@ namespace App\Services\Mapping;
  */
 class InvoiceMapper
 {
-    private const PARTY_FIELDS = ['name', 'street', 'city', 'zip', 'country', 'company_id', 'vat_id'];
+    private const PARTY_FIELDS = ['name', 'street', 'city', 'zip', 'country', 'company_id', 'vat_id', 'peppol_id'];
     private const LINE_OPTIONAL_FIELDS = ['unit', 'vat_category'];
     private const LINE_REQUIRED_FIELDS = ['name', 'quantity', 'unit_price', 'vat_rate'];
 
@@ -96,10 +96,13 @@ class InvoiceMapper
             'lines' => array_map(fn (Record $record) => $this->mapLine($definition, $record), $group),
         ];
 
-        if (isset($definition['due_date'])) {
-            $dueDate = $this->resolver->resolve($definition['due_date'], $header, 'due_date');
-            if ($dueDate !== null) {
-                $invoice['due_date'] = $dueDate;
+        foreach (['due_date', 'buyer_reference'] as $optionalField) {
+            if (!isset($definition[$optionalField])) {
+                continue;
+            }
+            $value = $this->resolver->resolve($definition[$optionalField], $header, $optionalField);
+            if ($value !== null) {
+                $invoice[$optionalField] = $value;
             }
         }
 

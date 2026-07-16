@@ -11,7 +11,9 @@
         "issue_date": {"from": "vystavena", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
         "due_date": {"from": "splatnost", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
         "currency": {"const": "EUR"},
+        "buyer_reference": {"from": "cislo"},
         "supplier": {
+            "peppol_id": {"const": "0245:0000000001"},
             "name": {"const": "Ukážkový dodávateľ s.r.o."},
             "street": {"const": "Hlavná 1"},
             "city": {"const": "Bratislava"},
@@ -21,6 +23,7 @@
             "vat_id": {"const": "SK2020123456"}
         },
         "customer": {
+            "peppol_id": {"const": "0245:0000000002"},
             "name": "odberatel",
             "street": "ulica",
             "city": "mesto",

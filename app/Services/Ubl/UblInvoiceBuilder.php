@@ -19,8 +19,10 @@ use InvalidArgumentException;
  *      'issue_date' => '2026-07-15',        // Y-m-d
  *      'due_date'   => '2026-07-29',        // optional, Y-m-d
  *      'currency'   => 'EUR',               // ISO 4217
+ *      'buyer_reference' => 'OBJ-123',      // BT-10; Peppol requires this or an order reference
  *      'supplier'   => [
  *          'name'       => 'Dodávateľ s.r.o.',
+ *          'peppol_id'  => '0245:0000000001', // BT-34 electronic address "scheme:value"
  *          'street'     => 'Hlavná 1',      // optional
  *          'city'       => 'Bratislava',    // optional
  *          'zip'        => '811 01',        // optional
@@ -95,6 +97,9 @@ class UblInvoiceBuilder
         }
         $this->cbc($root, 'InvoiceTypeCode', self::INVOICE_TYPE_CODE);
         $this->cbc($root, 'DocumentCurrencyCode', $currency);
+        if (!empty($invoice['buyer_reference'])) {
+            $this->cbc($root, 'BuyerReference', $invoice['buyer_reference']);
+        }
 
         $this->appendParty($this->cac($root, 'AccountingSupplierParty'), $invoice['supplier']);
         $this->appendParty($this->cac($root, 'AccountingCustomerParty'), $invoice['customer']);
@@ -185,6 +190,13 @@ class UblInvoiceBuilder
     {
         $node = $this->cac($wrapper, 'Party');
 
+        // Electronic address (BT-34/BT-49), "scheme:value" e.g. "0245:0000000001".
+        // Peppol requires it for both parties; EndpointID must be the first child.
+        if (!empty($party['peppol_id'])) {
+            [$scheme, $identifier] = $this->splitPeppolId($party['peppol_id']);
+            $this->cbc($node, 'EndpointID', $identifier, ['schemeID' => $scheme]);
+        }
+
         $this->cbc($this->cac($node, 'PartyName'), 'Name', $party['name']);
 
         $address = $this->cac($node, 'PostalAddress');
@@ -257,6 +269,21 @@ class UblInvoiceBuilder
                 }
             }
         }
+    }
+
+    /**
+     * @return array{0: string, 1: string} [scheme, identifier]
+     */
+    private function splitPeppolId(string $peppolId): array
+    {
+        $parts = explode(':', $peppolId, 2);
+        if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+            throw new InvalidArgumentException(
+                "peppol_id must be in 'scheme:identifier' format, got '{$peppolId}'"
+            );
+        }
+
+        return $parts;
     }
 
     private function cbc(DOMElement $parent, string $name, string $value, array $attributes = []): DOMElement

@@ -72,6 +72,14 @@ class PostarSend extends Command
                 $status = $postar->getStatus($result->documentId);
                 $this->info("Stav dokumentu: {$status->status}"
                     .($status->deliveredAt !== null ? " (doručené {$status->deliveredAt})" : ''));
+                if ($status->validationErrors !== []) {
+                    $this->error('Validačné chyby poštára:');
+                    foreach ($status->validationErrors as $error) {
+                        $this->line('  - '.$error);
+                    }
+
+                    return self::FAILURE;
+                }
             } catch (PostarException $exception) {
                 $this->warn('Stav sa nepodarilo zistiť: '.$exception->getMessage());
             }
@@ -83,11 +91,14 @@ class PostarSend extends Command
     private function sampleInvoice(): array
     {
         return [
-            'number' => 'FA-2026-0001',
+            // Unique per run — the sandbox deduplicates by invoice number.
+            'number' => 'FA-DEMO-'.now()->format('YmdHis'),
             'issue_date' => now()->format('Y-m-d'),
             'due_date' => now()->addDays(14)->format('Y-m-d'),
             'currency' => 'EUR',
+            'buyer_reference' => 'OBJ-2026-042',
             'supplier' => [
+                'peppol_id' => '0245:0000000001',
                 'name' => 'Ukážkový dodávateľ s.r.o.',
                 'street' => 'Hlavná 1',
                 'city' => 'Bratislava',
@@ -97,6 +108,7 @@ class PostarSend extends Command
                 'vat_id' => 'SK2020123456',
             ],
             'customer' => [
+                'peppol_id' => '0245:0000000002',
                 'name' => 'Ukážkový odberateľ a.s.',
                 'street' => 'Nákupná 22',
                 'city' => 'Košice',
