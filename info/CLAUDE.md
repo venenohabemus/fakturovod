@@ -195,11 +195,11 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 - [ ] Živnosť ohlásená
 
 ### Fáza 1 — MVP (cieľ: +3–4 mesiace)
-- [x] Laravel 13 skeleton (PHP 8.3, lokálne SQLite) · [ ] dátový model + stavový automat (s testami)
-- [x] Ingest: CSV adaptér (delimiter/enclosure, CP1250 cez iconv, BOM) · [x] XML adaptér (record_xpath, relatívne XPath polia)
-- [x] Mapping engine — základ (JSON definície, from/const/default/map, transformácie date+decimal, slovenské chybové hlášky s kontextom riadku, testy) · [ ] verzovanie definícií · [ ] fixtures: dobropis, oslobodenie, cudzia mena, zálohová (bežná + viac sadzieb DPH hotové)
-- [x] UBL 2.1 builder — Invoice (EN 16931 / Peppol BIS 3.0, sumy a DPH rozpis cez brick/math) · [ ] CreditNote/dobropis
-- [x] Validátor: XSD (OASIS schémy vendorované v resources/schemas) · [ ] schematron sidecar (KoSIT — na stroji chýba Java/Docker) · [ ] SK biznis kontroly + slovenské hlášky
+- [ ] Laravel skeleton + dátový model + stavový automat (s testami)
+- [ ] Ingest: CSV adaptér · [ ] XML adaptér
+- [ ] Mapping engine (JSON definície, verzovanie, testy na fixture faktúrach: bežná, dobropis, viac sadzieb DPH, oslobodenie, cudzia mena, zálohová)
+- [ ] UBL 2.1 builder
+- [ ] Validátor: XSD · [ ] schematron sidecar (KoSIT) · [ ] SK biznis kontroly + slovenské hlášky
 - [ ] ePošťák Connector adaptér (send, stavy, outbox) cez sandbox
 - [ ] Dashboard: login, faktúry, fronta chýb, JSON editor mapovania
 - [ ] Archív (object storage) + audit events + metering
@@ -223,7 +223,6 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 
 ### Denník
 - **07/2026:** Rozhodnutie ísť do projektu. Stratégia: ePošťák sandbox teraz, white-label pri prvom klientovi. — *(sem pripisovať: dátum + čo sa spravilo/rozhodlo)*
-- **15.–16. 7. 2026:** Dev prostredie (PHP 8.3.32 + Composer 2.10.2 cez winget), Laravel 13 skeleton, git repo, initial commit. UBL 2.1 builder + XSD validátor + `php artisan ubl:hello`. Mapping engine: CSV/XML → kanonický model → UBL (`php artisan invoice:convert`), ukážkový legacy export prechádza end-to-end; 36 testov zelených. Prijatý brief v2 — ePošťák Connector ako primárny backend, vlastná značka, white-label stratégia.
 
 ---
 
@@ -236,13 +235,3 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 - Idempotencia všade, retry s backoffom, dead-letter fronta.
 - Žiadna predčasná optimalizácia na škálu; feature flags per tenant namiesto forkov.
 - Primárne rozhranie k poštárovi = ePošťák Connector, ale VŽDY cez vlastný `PostarAdapterInterface`.
-
----
-
-## 17. Lokálne vývojové prostredie (Windows, stav 07/2026)
-
-- PHP 8.3.32 (winget balík `PHP.PHP.8.3`): `%LOCALAPPDATA%\Microsoft\WinGet\Packages\PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe` — adresár je v user PATH, v novom termináli funguje `php` aj `composer` (shim `composer.cmd` vedľa php.exe, Composer 2.10.2).
-- Zapnuté PHP rozšírenia: curl, fileinfo, gd, intl, mbstring, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, sqlite3, zip. Pozor: mbstring na tomto builde nepodporuje CP1250 — na prekódovanie používať iconv.
-- Framework: Laravel 13 (framework v13.20.0). Lokálna DB zatiaľ SQLite (`database/database.sqlite`) — na PostgreSQL prejsť, keď začne dávať zmysel (pipeline + JSONB).
-- Docker ani WSL na stroji nie sú — KoSIT validator (Java sidecar) bude vyžadovať inštaláciu OpenJDK (winget) alebo Docker Desktop.
-- Testy: `php artisan test`. Dev server: `php artisan serve` → http://localhost:8000 (pre Claude Code: `.claude/launch.json`).
