@@ -29,4 +29,9 @@ class ArrayRecord implements Record
     {
         return $this->label;
     }
+
+    public function export(): array
+    {
+        return ['type' => 'array', 'values' => $this->values, 'label' => $this->label];
+    }
 }

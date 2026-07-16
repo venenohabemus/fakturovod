@@ -20,4 +20,12 @@ interface Record
      * error messages — e.g. "riadok 3" or "záznam č. 2".
      */
     public function describe(): string;
+
+    /**
+     * Serializable representation for persisting the raw source data with
+     * an invoice. RecordFactory::fromExport() restores it.
+     *
+     * @return array{type: string, label: string, ...}
+     */
+    public function export(): array;
 }

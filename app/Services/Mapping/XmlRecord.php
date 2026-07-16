@@ -30,4 +30,13 @@ class XmlRecord implements Record
     {
         return $this->label;
     }
+
+    public function export(): array
+    {
+        return [
+            'type' => 'xml',
+            'xml' => $this->node->ownerDocument->saveXML($this->node),
+            'label' => $this->label,
+        ];
+    }
 }

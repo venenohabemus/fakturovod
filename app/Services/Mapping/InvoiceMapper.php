@@ -51,21 +51,24 @@ class InvoiceMapper
 
         $invoices = [];
         foreach ($this->groupRecords($definition, $records) as $group) {
-            $invoices[] = $this->mapInvoice($invoiceDefinition, $group);
+            $invoices[] = $this->mapGroup($definition, $group);
         }
 
         return $invoices;
     }
 
     /**
+     * Splits source records into invoice groups, keyed by the group_by
+     * value (a single '' key when no group_by is configured).
+     *
      * @param list<Record> $records
-     * @return list<non-empty-list<Record>>
+     * @return array<string, non-empty-list<Record>>
      */
-    private function groupRecords(array $definition, array $records): array
+    public function groupRecords(array $definition, array $records): array
     {
         $groupBy = $definition['source']['group_by'] ?? null;
         if ($groupBy === null) {
-            return [$records];
+            return $records === [] ? [] : ['' => $records];
         }
 
         $groups = [];
@@ -77,7 +80,20 @@ class InvoiceMapper
             $groups[$key][] = $record;
         }
 
-        return array_values($groups);
+        return $groups;
+    }
+
+    /**
+     * Maps one invoice group to the canonical invoice array.
+     *
+     * @param non-empty-list<Record> $group
+     */
+    public function mapGroup(array $definition, array $group): array
+    {
+        $invoiceDefinition = $definition['invoice']
+            ?? throw new MappingException("V mapovacej definícii chýba sekcia 'invoice'.");
+
+        return $this->mapInvoice($invoiceDefinition, $group);
     }
 
     /**
