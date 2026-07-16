@@ -1,0 +1,42 @@
+{
+    "version": 1,
+    "source": {
+        "type": "csv",
+        "delimiter": ";",
+        "encoding": "UTF-8",
+        "group_by": "cislo"
+    },
+    "invoice": {
+        "number": "cislo",
+        "issue_date": {"from": "vystavena", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
+        "due_date": {"from": "splatnost", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
+        "currency": {"const": "EUR"},
+        "supplier": {
+            "name": {"const": "Ukážkový dodávateľ s.r.o."},
+            "street": {"const": "Hlavná 1"},
+            "city": {"const": "Bratislava"},
+            "zip": {"const": "811 01"},
+            "country": {"const": "SK"},
+            "company_id": {"const": "12345678"},
+            "vat_id": {"const": "SK2020123456"}
+        },
+        "customer": {
+            "name": "odberatel",
+            "street": "ulica",
+            "city": "mesto",
+            "zip": "psc",
+            "country": {"const": "SK"},
+            "company_id": "ico_odb",
+            "vat_id": "icdph_odb"
+        },
+        "lines": {
+            "fields": {
+                "name": "polozka",
+                "unit": {"from": "mj", "map": {"ks": "C62", "hod": "HUR", "kg": "KGM"}, "map_default": "C62"},
+                "quantity": {"from": "mnozstvo", "transform": [{"type": "decimal"}]},
+                "unit_price": {"from": "cena", "transform": [{"type": "decimal"}]},
+                "vat_rate": "dph"
+            }
+        }
+    }
+}
