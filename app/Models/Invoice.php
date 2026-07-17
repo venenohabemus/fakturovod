@@ -78,13 +78,17 @@ class Invoice extends Model
     }
 
     /**
-     * Marks the invoice failed with a user-facing (Slovak) error message.
+     * Marks the invoice failed with a user-facing (Slovak) error message
+     * and nudges the humans — every failure means the error queue grew.
      */
     public function fail(string $message, array $context = []): self
     {
         $this->update(['error_message' => $message]);
+        $this->transitionTo(InvoiceStatus::Failed, $message, $context);
 
-        return $this->transitionTo(InvoiceStatus::Failed, $message, $context);
+        app(\App\Services\Alerts\InvoiceAlerts::class)->invoiceNeedsAttention($this);
+
+        return $this;
     }
 
     /**

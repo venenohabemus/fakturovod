@@ -145,9 +145,12 @@ class InvoicePipeline
                 'error_message' => $message,
             ]);
 
-            return $invoice->transitionTo(InvoiceStatus::Rejected, $message, [
+            $invoice->transitionTo(InvoiceStatus::Rejected, $message, [
                 'errors' => $status->validationErrors,
             ]);
+            app(\App\Services\Alerts\InvoiceAlerts::class)->invoiceNeedsAttention($invoice);
+
+            return $invoice;
         }
 
         return $invoice; // still in transit

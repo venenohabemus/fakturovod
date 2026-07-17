@@ -87,7 +87,9 @@ class InvoiceController extends Controller
         );
 
         $mapping = Mapping::findOrFail($request->input('mapping_id'));
-        $content = file_get_contents($request->file('export')->getRealPath());
+        // get() reads via getPathname(), not getRealPath() — realpath() can
+        // fail on Windows when the upload tmp dir is not listable by the user.
+        $content = $request->file('export')->get();
 
         try {
             $result = $pipeline->ingest($content, $mapping->definition);
