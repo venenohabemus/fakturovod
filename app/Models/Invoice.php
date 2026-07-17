@@ -28,6 +28,11 @@ class Invoice extends Model
         return $this->hasMany(InvoiceEvent::class);
     }
 
+    public function archiveObjects(): HasMany
+    {
+        return $this->hasMany(ArchiveObject::class);
+    }
+
     /**
      * Creates a freshly ingested invoice and records the initial event.
      */

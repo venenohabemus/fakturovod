@@ -18,6 +18,7 @@
             @endif
         </a>
         <a href="{{ route('mappings.index') }}" class="{{ request()->routeIs('mappings.*') ? 'active' : '' }}">Mapovania</a>
+        <a href="{{ route('usage.index') }}" class="{{ request()->routeIs('usage.*') ? 'active' : '' }}">Spotreba</a>
     </nav>
     <form method="POST" action="{{ route('logout') }}">
         @csrf

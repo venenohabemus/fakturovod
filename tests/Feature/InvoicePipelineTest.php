@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\InvoiceStatus;
+use App\Models\ArchiveObject;
 use App\Models\Invoice;
+use App\Models\UsageMeter;
+use App\Services\Archive\InvoiceArchiver;
 use App\Services\Pipeline\InvoicePipeline;
 use App\Services\Postar\PostarAdapterInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakePostarAdapter;
 use Tests\TestCase;
 
@@ -22,6 +26,7 @@ class InvoicePipelineTest extends TestCase
 
         $this->postar = new FakePostarAdapter();
         $this->app->instance(PostarAdapterInterface::class, $this->postar);
+        Storage::fake(InvoiceArchiver::DISK);
     }
 
     private function pipeline(): InvoicePipeline
@@ -85,7 +90,8 @@ class InvoicePipelineTest extends TestCase
 
         $trail = Invoice::first()->events()->orderBy('id')->pluck('to_status')->all();
         $this->assertSame(
-            ['received', 'mapped', 'validated', 'queued', 'sent', 'delivered'],
+            // The double 'sent' is the archive note (sent → sent, no transition).
+            ['received', 'mapped', 'validated', 'queued', 'sent', 'sent', 'delivered'],
             $trail
         );
 
@@ -94,6 +100,16 @@ class InvoicePipelineTest extends TestCase
         $this->assertSame('0245:0000000002', $first->receiver_peppol_id);
         $this->assertStringContainsString('<cbc:ID>FA-2026-0101</cbc:ID>', $first->ubl_xml);
         $this->assertSame(['business' => [], 'xsd' => []], $first->validation_report);
+
+        // Sending metered the documents and filed the archive copies.
+        $this->assertSame(
+            2,
+            (int) UsageMeter::where('metric', UsageMeter::DOCUMENTS_SENT)->value('count')
+        );
+        $this->assertSame(4, ArchiveObject::count(), '2 invoices × (UBL + source)');
+        foreach (ArchiveObject::all() as $object) {
+            Storage::disk(InvoiceArchiver::DISK)->assertExists($object->path);
+        }
     }
 
     public function test_broken_invoice_fails_without_blocking_the_rest(): void

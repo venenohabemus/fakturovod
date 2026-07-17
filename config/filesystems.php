@@ -38,6 +38,17 @@ return [
             'report' => false,
         ],
 
+        // Invoice archive. Local disk for now; on the VPS this switches to
+        // an S3-compatible bucket (Hetzner) by changing the driver + env.
+        // 'throw' => true: a failed archive write must never pass silently.
+        'archive' => [
+            'driver' => 'local',
+            'root' => storage_path('app/archive'),
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

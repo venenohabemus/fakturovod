@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\Mapping;
+use App\Models\UsageMeter;
 use App\Models\User;
 use App\Services\Postar\PostarAdapterInterface;
+use App\Services\Archive\InvoiceArchiver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakePostarAdapter;
 use Tests\TestCase;
 
@@ -24,6 +27,7 @@ class DashboardTest extends TestCase
 
         $this->user = User::factory()->create();
         $this->app->instance(PostarAdapterInterface::class, new FakePostarAdapter());
+        Storage::fake(InvoiceArchiver::DISK);
     }
 
     private function sampleMapping(): Mapping
@@ -144,6 +148,18 @@ class DashboardTest extends TestCase
             ->assertSee("nezodpovedá formátu dátumu")
             ->assertSee("Chýba povinná hodnota poľa 'quantity'")
             ->assertSee('nie je platné slovenské IČ DPH');
+    }
+
+    public function test_usage_page_shows_monthly_counters(): void
+    {
+        UsageMeter::record(UsageMeter::DOCUMENTS_SENT);
+        UsageMeter::record(UsageMeter::DOCUMENTS_SENT);
+
+        $this->actingAs($this->user)
+            ->get('/spotreba')
+            ->assertOk()
+            ->assertSee(now()->format('Y-m'))
+            ->assertSee('Odoslané dokumenty');
     }
 
     public function test_retry_from_dashboard_reprocesses_invoice(): void

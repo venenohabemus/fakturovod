@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ErrorQueueController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MappingController;
+use App\Http\Controllers\UsageController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -26,6 +27,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/faktury/{invoice}/ubl', [InvoiceController::class, 'downloadUbl'])->name('invoices.ubl');
 
     Route::get('/chyby', [ErrorQueueController::class, 'index'])->name('errors.index');
+
+    Route::get('/spotreba', [UsageController::class, 'index'])->name('usage.index');
 
     Route::get('/mapovania', [MappingController::class, 'index'])->name('mappings.index');
     Route::post('/mapovania', [MappingController::class, 'store'])->name('mappings.store');

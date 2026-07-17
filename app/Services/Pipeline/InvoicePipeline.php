@@ -4,6 +4,8 @@ namespace App\Services\Pipeline;
 
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
+use App\Models\UsageMeter;
+use App\Services\Archive\InvoiceArchiver;
 use App\Services\Mapping\InvoiceMapper;
 use App\Services\Mapping\MappingException;
 use App\Services\Mapping\Readers\CsvReader;
@@ -33,6 +35,7 @@ class InvoicePipeline
         private readonly UblInvoiceBuilder $builder,
         private readonly PostarAdapterInterface $postar,
         private readonly BusinessValidator $businessValidator = new BusinessValidator(),
+        private readonly InvoiceArchiver $archiver = new InvoiceArchiver(),
     ) {
     }
 
@@ -263,6 +266,22 @@ class InvoicePipeline
             'document_id' => $result->documentId,
             'status' => $result->status,
         ]);
+
+        // The document left the system — count it (tier billing + API cost
+        // watch) and file the evidence copy. A failed archive write must not
+        // fail the invoice (it IS sent); it lands in the audit trail instead.
+        UsageMeter::record(UsageMeter::DOCUMENTS_SENT);
+
+        try {
+            $this->archiver->archive($invoice);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $invoice->events()->create([
+                'from_status' => $invoice->status->value,
+                'to_status' => $invoice->status->value,
+                'message' => 'Archivácia zlyhala: '.$exception->getMessage().' — faktúra je odoslaná, archív treba doplniť.',
+            ]);
+        }
     }
 
     /**
