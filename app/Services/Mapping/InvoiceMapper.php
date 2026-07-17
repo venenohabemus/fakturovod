@@ -124,7 +124,11 @@ class InvoiceMapper
             }
         }
 
-        foreach (['type', 'due_date', 'buyer_reference', 'invoice_reference'] as $optionalField) {
+        $optionalFields = [
+            'type', 'due_date', 'buyer_reference', 'invoice_reference',
+            'vat_currency', 'vat_exchange_rate', 'prepaid_amount',
+        ];
+        foreach ($optionalFields as $optionalField) {
             if (!isset($definition[$optionalField])) {
                 continue;
             }

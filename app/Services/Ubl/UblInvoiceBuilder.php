@@ -20,6 +20,11 @@ use InvalidArgumentException;
  *      'issue_date' => '2026-07-15',        // Y-m-d
  *      'due_date'   => '2026-07-29',        // optional, Y-m-d; ignored for credit notes
  *      'currency'   => 'EUR',               // ISO 4217
+ *      'vat_currency' => 'EUR',             // optional BT-6: VAT accounting currency when the
+ *                                           // document is in a foreign currency (SK: VAT in EUR)
+ *      'vat_exchange_rate' => '0.0397',     // required with vat_currency: multiplier such that
+ *                                           // amount_in_vat_currency = amount_in_document_currency × rate
+ *      'prepaid_amount' => '500.00',        // optional BT-113: already-paid advances, deducted from payable
  *      'buyer_reference' => 'OBJ-123',      // BT-10; Peppol requires this or an order reference
  *      'invoice_reference' => 'FA-2026-0001', // optional; for credit notes: the corrected invoice number (BG-3)
  *      'supplier'   => [
@@ -89,6 +94,23 @@ class UblInvoiceBuilder
 
         $taxInclusive = $lineTotal->plus($vatTotal);
 
+        $prepaid = isset($invoice['prepaid_amount']) && $invoice['prepaid_amount'] !== ''
+            ? BigDecimal::of($invoice['prepaid_amount'])->toScale(2, RoundingMode::HalfUp)
+            : null;
+        if ($prepaid !== null && $prepaid->isGreaterThan($taxInclusive)) {
+            // Surfaces to the error queue via the pipeline — keep it Slovak.
+            throw new InvalidArgumentException(
+                "Odpočítaná záloha ({$prepaid}) je vyššia ako celková suma faktúry ({$taxInclusive})."
+            );
+        }
+        $payable = $prepaid !== null ? $taxInclusive->minus($prepaid) : $taxInclusive;
+
+        // BT-6: VAT accounting currency, only meaningful when it differs.
+        $vatCurrency = $invoice['vat_currency'] ?? null;
+        if ($vatCurrency === $currency) {
+            $vatCurrency = null;
+        }
+
         $this->doc = new DOMDocument('1.0', 'UTF-8');
         $this->doc->formatOutput = true;
 
@@ -114,6 +136,9 @@ class UblInvoiceBuilder
             $this->cbc($root, 'InvoiceTypeCode', self::INVOICE_TYPE_CODE);
         }
         $this->cbc($root, 'DocumentCurrencyCode', $currency);
+        if ($vatCurrency !== null) {
+            $this->cbc($root, 'TaxCurrencyCode', $vatCurrency);
+        }
         if (!empty($invoice['buyer_reference'])) {
             $this->cbc($root, 'BuyerReference', $invoice['buyer_reference']);
         }
@@ -146,11 +171,24 @@ class UblInvoiceBuilder
             $this->cbc($this->cac($category, 'TaxScheme'), 'ID', 'VAT');
         }
 
+        // BT-111: total VAT restated in the accounting currency — a second
+        // TaxTotal carrying only the converted amount (BR-53).
+        if ($vatCurrency !== null) {
+            $vatInVatCurrency = $vatTotal
+                ->multipliedBy(BigDecimal::of($invoice['vat_exchange_rate']))
+                ->toScale(2, RoundingMode::HalfUp);
+            $secondTaxTotal = $this->cac($root, 'TaxTotal');
+            $this->cbc($secondTaxTotal, 'TaxAmount', (string) $vatInVatCurrency, ['currencyID' => $vatCurrency]);
+        }
+
         $totals = $this->cac($root, 'LegalMonetaryTotal');
         $this->cbc($totals, 'LineExtensionAmount', (string) $lineTotal, ['currencyID' => $currency]);
         $this->cbc($totals, 'TaxExclusiveAmount', (string) $lineTotal, ['currencyID' => $currency]);
         $this->cbc($totals, 'TaxInclusiveAmount', (string) $taxInclusive, ['currencyID' => $currency]);
-        $this->cbc($totals, 'PayableAmount', (string) $taxInclusive, ['currencyID' => $currency]);
+        if ($prepaid !== null) {
+            $this->cbc($totals, 'PrepaidAmount', (string) $prepaid, ['currencyID' => $currency]);
+        }
+        $this->cbc($totals, 'PayableAmount', (string) $payable, ['currencyID' => $currency]);
 
         foreach ($lines as $line) {
             $this->appendLine($root, $line, $currency, $isCreditNote);
@@ -300,6 +338,22 @@ class UblInvoiceBuilder
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $invoice['issue_date'])) {
             throw new InvalidArgumentException('issue_date must be in Y-m-d format');
+        }
+
+        $vatCurrency = $invoice['vat_currency'] ?? null;
+        if ($vatCurrency !== null && $vatCurrency !== $invoice['currency']) {
+            $rate = $invoice['vat_exchange_rate'] ?? null;
+            if (!is_numeric($rate) || (float) $rate <= 0) {
+                throw new InvalidArgumentException(
+                    'vat_currency requires a positive numeric vat_exchange_rate '
+                    .'(amount_in_vat_currency = amount_in_document_currency × rate)'
+                );
+            }
+        }
+
+        $prepaid = $invoice['prepaid_amount'] ?? null;
+        if ($prepaid !== null && $prepaid !== '' && (!is_numeric($prepaid) || (float) $prepaid < 0)) {
+            throw new InvalidArgumentException('prepaid_amount must be a non-negative number');
         }
 
         foreach (['supplier', 'customer'] as $partyKey) {

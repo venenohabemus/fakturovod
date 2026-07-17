@@ -153,6 +153,45 @@ class InvoicePipelineTest extends TestCase
         $this->assertStringContainsString('FA-2026-0101', $invoice->ubl_xml, 'referencia na pôvodnú faktúru');
     }
 
+    public function test_foreign_currency_invoice_flows_with_eur_vat_total(): void
+    {
+        $pipeline = $this->pipeline();
+        $pipeline->ingest(
+            file_get_contents(resource_path('samples/legacy-export-cudzia-mena.csv')),
+            $this->definition()
+        );
+
+        $invoice = Invoice::first();
+        $pipeline->process($invoice);
+
+        $this->assertSame(InvoiceStatus::Sent, $invoice->status);
+        $this->assertSame('CZK', $invoice->canonical['currency']);
+        $this->assertSame('EUR', $invoice->canonical['vat_currency']);
+
+        // 10 × 2500 + 1 × 1200 = 26200 CZK; VAT 23 % = 6026.00 CZK;
+        // × 0.0397 = 239.2322 → 239.23 EUR (BT-111).
+        $this->assertStringContainsString('<cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode>', $invoice->ubl_xml);
+        $this->assertStringContainsString('<cbc:TaxAmount currencyID="CZK">6026.00</cbc:TaxAmount>', $invoice->ubl_xml);
+        $this->assertStringContainsString('<cbc:TaxAmount currencyID="EUR">239.23</cbc:TaxAmount>', $invoice->ubl_xml);
+    }
+
+    public function test_prepayment_invoice_flows_with_reduced_payable(): void
+    {
+        $pipeline = $this->pipeline();
+        $pipeline->ingest(
+            file_get_contents(resource_path('samples/legacy-export-zaloha.csv')),
+            $this->definition()
+        );
+
+        $invoice = Invoice::first();
+        $pipeline->process($invoice);
+
+        $this->assertSame(InvoiceStatus::Sent, $invoice->status);
+        // 20 × 50 = 1000; VAT 23 % = 230 → 1230 total − 500 advance = 730 payable.
+        $this->assertStringContainsString('<cbc:PrepaidAmount currencyID="EUR">500.00</cbc:PrepaidAmount>', $invoice->ubl_xml);
+        $this->assertStringContainsString('<cbc:PayableAmount currencyID="EUR">730.00</cbc:PayableAmount>', $invoice->ubl_xml);
+    }
+
     public function test_business_validation_failure_collects_all_errors(): void
     {
         // Maps cleanly, but: VAT id typo (not divisible by 11) + 20 % is not

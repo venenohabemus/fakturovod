@@ -37,6 +37,8 @@ class BusinessValidator
         $this->checkType($invoice, $errors);
         $this->checkDates($invoice, $errors);
         $this->checkCurrency($invoice, $errors);
+        $this->checkVatCurrency($invoice, $errors);
+        $this->checkPrepaidAmount($invoice, $errors);
         $this->checkBuyerReference($invoice, $errors);
         $this->checkParty($invoice['supplier'] ?? [], 'dodávateľa', $errors);
         $this->checkParty($invoice['customer'] ?? [], 'odberateľa', $errors);
@@ -76,6 +78,47 @@ class BusinessValidator
         $currency = $invoice['currency'] ?? '';
         if (!preg_match('/^[A-Z]{3}$/', $currency)) {
             $errors[] = "Mena '{$currency}' nie je platný ISO 4217 kód — očakáva sa napr. 'EUR'.";
+        }
+    }
+
+    /**
+     * SK VAT act: the tax must be stated in EUR even when the invoice is
+     * issued in a foreign currency — a Slovak supplier invoicing in another
+     * currency needs vat_currency EUR plus a conversion rate (BT-6/BR-53).
+     */
+    private function checkVatCurrency(array $invoice, array &$errors): void
+    {
+        $currency = $invoice['currency'] ?? '';
+        $vatCurrency = $invoice['vat_currency'] ?? null;
+        $supplierIsSk = ($invoice['supplier']['country'] ?? null) === 'SK';
+
+        if ($supplierIsSk
+            && preg_match('/^[A-Z]{3}$/', $currency)
+            && $currency !== 'EUR'
+            && $vatCurrency !== 'EUR'
+        ) {
+            $errors[] = "Faktúra v mene {$currency} od slovenského dodávateľa musí uvádzať DPH aj v eurách "
+                ."— doplňte menu DPH (vat_currency) 'EUR' a prepočítací kurz (vat_exchange_rate).";
+        }
+
+        if ($vatCurrency !== null && $vatCurrency !== '' && $vatCurrency !== $currency) {
+            $rate = $invoice['vat_exchange_rate'] ?? null;
+            if (!is_numeric($rate) || (float) $rate <= 0) {
+                $errors[] = "Pri mene DPH '{$vatCurrency}' chýba platný prepočítací kurz (vat_exchange_rate) "
+                    .'— kladné číslo, ktorým sa suma vo fakturačnej mene prepočíta na menu DPH.';
+            }
+        }
+    }
+
+    private function checkPrepaidAmount(array $invoice, array &$errors): void
+    {
+        $prepaid = $invoice['prepaid_amount'] ?? null;
+        if ($prepaid === null || $prepaid === '') {
+            return;
+        }
+
+        if (!is_numeric($prepaid) || (float) $prepaid < 0) {
+            $errors[] = "Odpočítaná záloha '{$prepaid}' (prepaid_amount) nie je platná suma — očakáva sa nezáporné číslo.";
         }
     }
 

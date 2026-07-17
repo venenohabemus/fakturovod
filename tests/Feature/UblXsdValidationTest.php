@@ -83,6 +83,37 @@ class UblXsdValidationTest extends TestCase
         $this->assertStringNotContainsString('DueDate', $xml);
     }
 
+    public function test_foreign_currency_invoice_with_prepayment_passes_xsd_validation(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build([
+            'number' => 'FA-2026-0201',
+            'issue_date' => '2026-07-05',
+            'due_date' => '2026-07-19',
+            'currency' => 'CZK',
+            'vat_currency' => 'EUR',
+            'vat_exchange_rate' => '0.0397',
+            'prepaid_amount' => '1000.00',
+            'buyer_reference' => 'OBJ-201',
+            'supplier' => [
+                'name' => 'Dodávateľ s.r.o.',
+                'country' => 'SK',
+                'vat_id' => 'SK2020123457',
+            ],
+            'customer' => [
+                'name' => 'Odberateľ a.s.',
+                'country' => 'SK',
+                'vat_id' => 'SK2020654328',
+            ],
+            'lines' => [
+                ['name' => 'Súčiastky', 'quantity' => '10', 'unit_price' => '2500.00', 'vat_rate' => '23'],
+            ],
+        ]);
+
+        $this->assertSame([], $this->validator()->validate($xml));
+        $this->assertStringContainsString('<cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode>', $xml);
+        $this->assertStringContainsString('<cbc:PrepaidAmount currencyID="CZK">1000.00</cbc:PrepaidAmount>', $xml);
+    }
+
     public function test_incomplete_invoice_document_fails_xsd_validation(): void
     {
         // An Invoice without its required children (ID, IssueDate, parties, ...)

@@ -12,7 +12,10 @@
         "invoice_reference": {"from": "povodna_fa"},
         "issue_date": {"from": "vystavena", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
         "due_date": {"from": "splatnost", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
-        "currency": {"const": "EUR"},
+        "currency": {"from": "mena", "default": "EUR"},
+        "vat_currency": {"from": "mena_dph"},
+        "vat_exchange_rate": {"from": "kurz", "transform": [{"type": "decimal"}]},
+        "prepaid_amount": {"from": "zaloha", "transform": [{"type": "decimal"}]},
         "buyer_reference": {"from": "cislo"},
         "supplier": {
             "peppol_id": {"const": "0245:0000000001"},

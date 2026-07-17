@@ -73,6 +73,52 @@ class BusinessValidatorTest extends TestCase
         $this->assertStringContainsString('ISO 4217', $errors[0]);
     }
 
+    public function test_foreign_currency_invoice_from_sk_supplier_requires_eur_vat_currency(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice(['currency' => 'CZK']));
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('musí uvádzať DPH aj v eurách', $errors[0]);
+    }
+
+    public function test_foreign_currency_with_eur_vat_currency_and_rate_passes(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice([
+            'currency' => 'CZK',
+            'vat_currency' => 'EUR',
+            'vat_exchange_rate' => '0.0397',
+        ]));
+
+        $this->assertSame([], $errors);
+    }
+
+    public function test_vat_currency_without_exchange_rate_is_reported(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice([
+            'currency' => 'CZK',
+            'vat_currency' => 'EUR',
+        ]));
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('prepočítací kurz', $errors[0]);
+    }
+
+    public function test_negative_prepaid_amount_is_reported(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice(['prepaid_amount' => '-10']));
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('záloha', $errors[0]);
+    }
+
+    public function test_valid_prepaid_amount_passes(): void
+    {
+        $this->assertSame(
+            [],
+            $this->validator->validate($this->validInvoice(['prepaid_amount' => '150.00']))
+        );
+    }
+
     public function test_missing_buyer_reference_is_reported(): void
     {
         $invoice = $this->validInvoice();

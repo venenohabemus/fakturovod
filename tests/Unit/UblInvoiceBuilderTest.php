@@ -133,6 +133,76 @@ class UblInvoiceBuilderTest extends TestCase
         );
     }
 
+    public function test_foreign_currency_adds_tax_currency_and_converted_vat_total(): void
+    {
+        // 10 × 50.00 CZK @ 23 % → VAT 115.00 CZK; × 0.0397 = 4.5655 → 4.57 EUR
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'currency' => 'CZK',
+            'vat_currency' => 'EUR',
+            'vat_exchange_rate' => '0.0397',
+        ]));
+        $xpath = $this->xpath($xml);
+
+        $this->assertSame('CZK', $this->value($xpath, '/inv:Invoice/cbc:DocumentCurrencyCode'));
+        $this->assertSame('EUR', $this->value($xpath, '/inv:Invoice/cbc:TaxCurrencyCode'));
+
+        $this->assertSame(2, $xpath->query('/inv:Invoice/cac:TaxTotal')->length);
+        $this->assertSame('115.00', $this->value($xpath, '/inv:Invoice/cac:TaxTotal[1]/cbc:TaxAmount'));
+        $this->assertSame('4.57', $this->value($xpath, '/inv:Invoice/cac:TaxTotal[2]/cbc:TaxAmount'));
+        $this->assertSame(
+            'EUR',
+            (string) $xpath->evaluate('string(/inv:Invoice/cac:TaxTotal[2]/cbc:TaxAmount/@currencyID)')
+        );
+        $this->assertSame(
+            0,
+            $xpath->query('/inv:Invoice/cac:TaxTotal[2]/cac:TaxSubtotal')->length,
+            'the second TaxTotal carries only the converted amount (BT-111)'
+        );
+    }
+
+    public function test_same_vat_currency_emits_no_second_tax_total(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'vat_currency' => 'EUR',
+        ]));
+        $xpath = $this->xpath($xml);
+
+        $this->assertSame('', $this->value($xpath, '/inv:Invoice/cbc:TaxCurrencyCode'));
+        $this->assertSame(1, $xpath->query('/inv:Invoice/cac:TaxTotal')->length);
+    }
+
+    public function test_vat_currency_without_exchange_rate_throws(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('vat_exchange_rate');
+        (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'currency' => 'CZK',
+            'vat_currency' => 'EUR',
+        ]));
+    }
+
+    public function test_prepaid_amount_reduces_payable(): void
+    {
+        // Total 615.00; advance 500.00 → payable 115.00
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'prepaid_amount' => '500.00',
+        ]));
+        $xpath = $this->xpath($xml);
+
+        $this->assertSame('615.00', $this->value($xpath, '/inv:Invoice/cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount'));
+        $this->assertSame('500.00', $this->value($xpath, '/inv:Invoice/cac:LegalMonetaryTotal/cbc:PrepaidAmount'));
+        $this->assertSame('115.00', $this->value($xpath, '/inv:Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount'));
+    }
+
+    public function test_prepaid_exceeding_total_throws_slovak_message(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('je vyššia ako celková suma faktúry');
+        (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'prepaid_amount' => '1000.00',
+        ]));
+    }
+
     public function test_unknown_type_throws(): void
     {
         $this->expectException(InvalidArgumentException::class);
