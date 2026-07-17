@@ -8,6 +8,8 @@
     },
     "invoice": {
         "number": "cislo",
+        "type": {"from": "typ", "map": {"F": "invoice", "D": "credit_note"}, "map_default": "invoice"},
+        "invoice_reference": {"from": "povodna_fa"},
         "issue_date": {"from": "vystavena", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
         "due_date": {"from": "splatnost", "transform": [{"type": "date", "from_format": "d.m.Y"}]},
         "currency": {"const": "EUR"},

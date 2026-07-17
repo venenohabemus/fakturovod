@@ -60,6 +60,85 @@ class UblInvoiceBuilderTest extends TestCase
         return (string) $xpath->evaluate("string({$query})");
     }
 
+    public function test_credit_note_structure(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'type' => 'credit_note',
+            'number' => 'DBP-2026-0001',
+            'invoice_reference' => 'FA-2026-0001',
+        ]));
+
+        $document = new DOMDocument();
+        $this->assertTrue($document->loadXML($xml));
+        $xpath = new DOMXPath($document);
+        $xpath->registerNamespace('cn', 'urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2');
+        $xpath->registerNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+        $xpath->registerNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+
+        $this->assertSame('CreditNote', $document->documentElement->localName);
+        $this->assertSame('381', $this->value($xpath, '/cn:CreditNote/cbc:CreditNoteTypeCode'));
+        $this->assertSame('DBP-2026-0001', $this->value($xpath, '/cn:CreditNote/cbc:ID'));
+        $this->assertSame(
+            'FA-2026-0001',
+            $this->value($xpath, '/cn:CreditNote/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID')
+        );
+        $this->assertSame('10', $this->value($xpath, '/cn:CreditNote/cac:CreditNoteLine[1]/cbc:CreditedQuantity'));
+        // Amounts stay positive — a credit note credits, the sign lives in the type.
+        $this->assertSame('500.00', $this->value($xpath, '/cn:CreditNote/cac:LegalMonetaryTotal/cbc:LineExtensionAmount'));
+        // UBL CreditNote has no DueDate element.
+        $this->assertSame('', $this->value($xpath, '/cn:CreditNote/cbc:DueDate'));
+    }
+
+    public function test_exempt_category_gets_exemption_reason_in_breakdown(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'lines' => [
+                [
+                    'name' => 'Poisťovacia služba',
+                    'quantity' => '1',
+                    'unit_price' => '100.00',
+                    'vat_rate' => '0',
+                    'vat_category' => 'E',
+                    'vat_exemption_reason' => 'Oslobodené podľa § 37 zákona o DPH',
+                ],
+            ],
+        ]));
+        $xpath = $this->xpath($xml);
+
+        $this->assertSame(
+            'Oslobodené podľa § 37 zákona o DPH',
+            $this->value($xpath, '/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReason')
+        );
+        $this->assertSame('0.00', $this->value($xpath, '/inv:Invoice/cac:TaxTotal/cbc:TaxAmount'));
+    }
+
+    public function test_reverse_charge_gets_default_exemption_reason(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build($this->baseInvoice([
+            'lines' => [
+                [
+                    'name' => 'Stavebné práce',
+                    'quantity' => '1',
+                    'unit_price' => '1000.00',
+                    'vat_rate' => '0',
+                    'vat_category' => 'AE',
+                ],
+            ],
+        ]));
+        $xpath = $this->xpath($xml);
+
+        $this->assertSame(
+            'Prenesenie daňovej povinnosti (reverse charge)',
+            $this->value($xpath, '/inv:Invoice/cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReason')
+        );
+    }
+
+    public function test_unknown_type_throws(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new UblInvoiceBuilder())->build($this->baseInvoice(['type' => 'proforma']));
+    }
+
     public function test_single_line_totals(): void
     {
         $xml = (new UblInvoiceBuilder())->build($this->baseInvoice());

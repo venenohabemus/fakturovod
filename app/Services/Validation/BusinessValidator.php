@@ -34,6 +34,7 @@ class BusinessValidator
     {
         $errors = [];
 
+        $this->checkType($invoice, $errors);
         $this->checkDates($invoice, $errors);
         $this->checkCurrency($invoice, $errors);
         $this->checkBuyerReference($invoice, $errors);
@@ -42,6 +43,14 @@ class BusinessValidator
         $this->checkLines($invoice, $errors);
 
         return $errors;
+    }
+
+    private function checkType(array $invoice, array &$errors): void
+    {
+        $type = $invoice['type'] ?? 'invoice';
+        if (!in_array($type, ['invoice', 'credit_note'], true)) {
+            $errors[] = "Typ dokladu '{$type}' nie je podporovaný — očakáva sa 'invoice' (faktúra) alebo 'credit_note' (dobropis).";
+        }
     }
 
     private function checkDates(array $invoice, array &$errors): void
@@ -167,6 +176,12 @@ class BusinessValidator
                 }
             } elseif (in_array($category, self::ZERO_RATE_CATEGORIES, true) && (float) $rate !== 0.0) {
                 $errors[] = "Kategória DPH '{$category}' vyžaduje sadzbu 0 %, uvedená je {$rate} % ({$position}).";
+            }
+
+            // BR-E-10: exemption needs a stated reason. Reverse charge (AE)
+            // gets a default reason in the builder, category E must say why.
+            if ($category === 'E' && empty($line['vat_exemption_reason'])) {
+                $errors[] = "Kategória DPH 'E' (oslobodené) vyžaduje dôvod oslobodenia (vat_exemption_reason) — napr. '§ 39 zákona o DPH' ({$position}).";
             }
         }
 

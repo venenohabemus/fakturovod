@@ -135,6 +135,24 @@ class InvoicePipelineTest extends TestCase
         $this->assertCount(1, $this->postar->sent);
     }
 
+    public function test_credit_note_flows_through_pipeline_as_ubl_credit_note(): void
+    {
+        $pipeline = $this->pipeline();
+        $pipeline->ingest(
+            file_get_contents(resource_path('samples/legacy-export-dobropis.csv')),
+            $this->definition()
+        );
+
+        $invoice = Invoice::first();
+        $pipeline->process($invoice);
+
+        $this->assertSame(InvoiceStatus::Sent, $invoice->status);
+        $this->assertSame('credit_note', $invoice->canonical['type']);
+        $this->assertStringContainsString('<CreditNote', $invoice->ubl_xml);
+        $this->assertStringContainsString('<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>', $invoice->ubl_xml);
+        $this->assertStringContainsString('FA-2026-0101', $invoice->ubl_xml, 'referencia na pôvodnú faktúru');
+    }
+
     public function test_business_validation_failure_collects_all_errors(): void
     {
         // Maps cleanly, but: VAT id typo (not divisible by 11) + 20 % is not

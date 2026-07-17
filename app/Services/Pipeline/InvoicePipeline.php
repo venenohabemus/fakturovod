@@ -216,9 +216,10 @@ class InvoicePipeline
             return;
         }
 
-        $validator = new XsdValidator(
-            resource_path('schemas/ubl-2.1/maindoc/UBL-Invoice-2.1.xsd')
-        );
+        $xsd = ($invoice->canonical['type'] ?? 'invoice') === 'credit_note'
+            ? 'schemas/ubl-2.1/maindoc/UBL-CreditNote-2.1.xsd'
+            : 'schemas/ubl-2.1/maindoc/UBL-Invoice-2.1.xsd';
+        $validator = new XsdValidator(resource_path($xsd));
         $errors = $validator->validate($xml);
 
         $invoice->update([

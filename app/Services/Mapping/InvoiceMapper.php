@@ -28,7 +28,7 @@ namespace App\Services\Mapping;
 class InvoiceMapper
 {
     private const PARTY_FIELDS = ['name', 'street', 'city', 'zip', 'country', 'company_id', 'vat_id', 'peppol_id'];
-    private const LINE_OPTIONAL_FIELDS = ['unit', 'vat_category'];
+    private const LINE_OPTIONAL_FIELDS = ['unit', 'vat_category', 'vat_exemption_reason'];
     private const LINE_REQUIRED_FIELDS = ['name', 'quantity', 'unit_price', 'vat_rate'];
 
     public function __construct(
@@ -124,7 +124,7 @@ class InvoiceMapper
             }
         }
 
-        foreach (['due_date', 'buyer_reference'] as $optionalField) {
+        foreach (['type', 'due_date', 'buyer_reference', 'invoice_reference'] as $optionalField) {
             if (!isset($definition[$optionalField])) {
                 continue;
             }

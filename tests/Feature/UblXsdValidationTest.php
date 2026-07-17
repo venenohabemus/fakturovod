@@ -48,6 +48,41 @@ class UblXsdValidationTest extends TestCase
         $this->assertSame([], $this->validator()->validate($xml));
     }
 
+    public function test_generated_credit_note_passes_xsd_validation(): void
+    {
+        $xml = (new UblInvoiceBuilder())->build([
+            'type' => 'credit_note',
+            'number' => 'DBP-2026-0001',
+            'issue_date' => '2026-07-20',
+            'currency' => 'EUR',
+            'buyer_reference' => 'OBJ-99',
+            'invoice_reference' => 'FA-2026-0001',
+            'supplier' => [
+                'name' => 'Dodávateľ s.r.o.',
+                'country' => 'SK',
+                'vat_id' => 'SK2020123457',
+            ],
+            'customer' => [
+                'name' => 'Odberateľ a.s.',
+                'country' => 'SK',
+                'vat_id' => 'SK2020654328',
+            ],
+            'lines' => [
+                ['name' => 'Vrátený tovar', 'quantity' => '2', 'unit_price' => '19.90', 'vat_rate' => '23'],
+            ],
+        ]);
+
+        $validator = new XsdValidator(
+            resource_path('schemas/ubl-2.1/maindoc/UBL-CreditNote-2.1.xsd')
+        );
+        $this->assertSame([], $validator->validate($xml));
+        $this->assertStringContainsString('<CreditNote', $xml);
+        $this->assertStringContainsString('<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>', $xml);
+        $this->assertStringContainsString('<cbc:CreditedQuantity unitCode="C62">2</cbc:CreditedQuantity>', $xml);
+        $this->assertStringContainsString('<cbc:ID>FA-2026-0001</cbc:ID>', $xml);
+        $this->assertStringNotContainsString('DueDate', $xml);
+    }
+
     public function test_incomplete_invoice_document_fails_xsd_validation(): void
     {
         // An Invoice without its required children (ID, IssueDate, parties, ...)

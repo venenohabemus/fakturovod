@@ -9,17 +9,19 @@ use DOMElement;
 use InvalidArgumentException;
 
 /**
- * Builds a minimal UBL 2.1 Invoice XML document aligned with EN 16931,
- * using the Peppol BIS Billing 3.0 customization.
+ * Builds a minimal UBL 2.1 Invoice or CreditNote XML document aligned
+ * with EN 16931, using the Peppol BIS Billing 3.0 customization.
  *
  * Input is a canonical invoice array:
  *
  *  [
+ *      'type'       => 'invoice',           // optional: 'invoice' (default) | 'credit_note'
  *      'number'     => 'FA-2026-0001',
  *      'issue_date' => '2026-07-15',        // Y-m-d
- *      'due_date'   => '2026-07-29',        // optional, Y-m-d
+ *      'due_date'   => '2026-07-29',        // optional, Y-m-d; ignored for credit notes
  *      'currency'   => 'EUR',               // ISO 4217
  *      'buyer_reference' => 'OBJ-123',      // BT-10; Peppol requires this or an order reference
+ *      'invoice_reference' => 'FA-2026-0001', // optional; for credit notes: the corrected invoice number (BG-3)
  *      'supplier'   => [
  *          'name'       => 'Dodávateľ s.r.o.',
  *          'peppol_id'  => '0245:0000000001', // BT-34 electronic address "scheme:value"
@@ -39,6 +41,7 @@ use InvalidArgumentException;
  *              'unit_price'   => '50.00',
  *              'vat_rate'     => '23',      // percent
  *              'vat_category' => 'S',       // UNCL5305, optional (default S)
+ *              'vat_exemption_reason' => '…', // BT-121; required for category E, optional otherwise
  *          ],
  *      ],
  *  ]
@@ -49,12 +52,17 @@ use InvalidArgumentException;
 class UblInvoiceBuilder
 {
     private const NS_INVOICE = 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2';
+    private const NS_CREDIT_NOTE = 'urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2';
     private const NS_CAC = 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2';
     private const NS_CBC = 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2';
 
     private const CUSTOMIZATION_ID = 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
     private const PROFILE_ID = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0';
     private const INVOICE_TYPE_CODE = '380';
+    private const CREDIT_NOTE_TYPE_CODE = '381';
+
+    // Reverse charge (AE) breakdowns must carry an exemption reason (BR-AE-10).
+    private const REVERSE_CHARGE_REASON = 'Prenesenie daňovej povinnosti (reverse charge)';
 
     private DOMDocument $doc;
 
@@ -62,6 +70,7 @@ class UblInvoiceBuilder
     {
         $this->assertValid($invoice);
 
+        $isCreditNote = ($invoice['type'] ?? 'invoice') === 'credit_note';
         $currency = $invoice['currency'];
         $lines = $this->computeLines($invoice['lines']);
         $breakdown = $this->computeVatBreakdown($lines);
@@ -83,7 +92,10 @@ class UblInvoiceBuilder
         $this->doc = new DOMDocument('1.0', 'UTF-8');
         $this->doc->formatOutput = true;
 
-        $root = $this->doc->createElementNS(self::NS_INVOICE, 'Invoice');
+        $root = $this->doc->createElementNS(
+            $isCreditNote ? self::NS_CREDIT_NOTE : self::NS_INVOICE,
+            $isCreditNote ? 'CreditNote' : 'Invoice'
+        );
         $root->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:cac', self::NS_CAC);
         $root->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:cbc', self::NS_CBC);
         $this->doc->appendChild($root);
@@ -92,13 +104,28 @@ class UblInvoiceBuilder
         $this->cbc($root, 'ProfileID', self::PROFILE_ID);
         $this->cbc($root, 'ID', $invoice['number']);
         $this->cbc($root, 'IssueDate', $invoice['issue_date']);
-        if (!empty($invoice['due_date'])) {
-            $this->cbc($root, 'DueDate', $invoice['due_date']);
+        if ($isCreditNote) {
+            // UBL 2.1 CreditNote has no cbc:DueDate element.
+            $this->cbc($root, 'CreditNoteTypeCode', self::CREDIT_NOTE_TYPE_CODE);
+        } else {
+            if (!empty($invoice['due_date'])) {
+                $this->cbc($root, 'DueDate', $invoice['due_date']);
+            }
+            $this->cbc($root, 'InvoiceTypeCode', self::INVOICE_TYPE_CODE);
         }
-        $this->cbc($root, 'InvoiceTypeCode', self::INVOICE_TYPE_CODE);
         $this->cbc($root, 'DocumentCurrencyCode', $currency);
         if (!empty($invoice['buyer_reference'])) {
             $this->cbc($root, 'BuyerReference', $invoice['buyer_reference']);
+        }
+
+        // BG-3: reference to the corrected invoice — expected on credit notes.
+        if (!empty($invoice['invoice_reference'])) {
+            $billingReference = $this->cac($root, 'BillingReference');
+            $this->cbc(
+                $this->cac($billingReference, 'InvoiceDocumentReference'),
+                'ID',
+                $invoice['invoice_reference']
+            );
         }
 
         $this->appendParty($this->cac($root, 'AccountingSupplierParty'), $invoice['supplier']);
@@ -113,6 +140,9 @@ class UblInvoiceBuilder
             $category = $this->cac($subtotal, 'TaxCategory');
             $this->cbc($category, 'ID', $group['category']);
             $this->cbc($category, 'Percent', (string) $group['rate']);
+            if ($group['exemption_reason'] !== null) {
+                $this->cbc($category, 'TaxExemptionReason', $group['exemption_reason']);
+            }
             $this->cbc($this->cac($category, 'TaxScheme'), 'ID', 'VAT');
         }
 
@@ -123,7 +153,7 @@ class UblInvoiceBuilder
         $this->cbc($totals, 'PayableAmount', (string) $taxInclusive, ['currencyID' => $currency]);
 
         foreach ($lines as $line) {
-            $this->appendLine($root, $line, $currency);
+            $this->appendLine($root, $line, $currency, $isCreditNote);
         }
 
         return $this->doc->saveXML();
@@ -149,6 +179,7 @@ class UblInvoiceBuilder
                 'unit_price' => $unitPrice,
                 'vat_category' => $line['vat_category'] ?? 'S',
                 'vat_rate' => BigDecimal::of($line['vat_rate']),
+                'vat_exemption_reason' => $line['vat_exemption_reason'] ?? null,
                 'line_extension' => $quantity->multipliedBy($unitPrice)->toScale(2, RoundingMode::HalfUp),
             ];
         }
@@ -172,9 +203,14 @@ class UblInvoiceBuilder
                     'category' => $line['vat_category'],
                     'rate' => $line['vat_rate'],
                     'taxable' => BigDecimal::zero()->toScale(2),
+                    // BT-121 per breakdown: first line reason wins; reverse
+                    // charge gets a fixed default (BR-AE-10).
+                    'exemption_reason' => $line['vat_exemption_reason']
+                        ?? ($line['vat_category'] === 'AE' ? self::REVERSE_CHARGE_REASON : null),
                 ];
             }
             $groups[$key]['taxable'] = $groups[$key]['taxable']->plus($line['line_extension']);
+            $groups[$key]['exemption_reason'] ??= $line['vat_exemption_reason'];
         }
 
         foreach ($groups as &$group) {
@@ -224,11 +260,16 @@ class UblInvoiceBuilder
         }
     }
 
-    private function appendLine(DOMElement $root, array $line, string $currency): void
+    private function appendLine(DOMElement $root, array $line, string $currency, bool $isCreditNote): void
     {
-        $node = $this->cac($root, 'InvoiceLine');
+        $node = $this->cac($root, $isCreditNote ? 'CreditNoteLine' : 'InvoiceLine');
         $this->cbc($node, 'ID', $line['id']);
-        $this->cbc($node, 'InvoicedQuantity', (string) $line['quantity'], ['unitCode' => $line['unit']]);
+        $this->cbc(
+            $node,
+            $isCreditNote ? 'CreditedQuantity' : 'InvoicedQuantity',
+            (string) $line['quantity'],
+            ['unitCode' => $line['unit']]
+        );
         $this->cbc($node, 'LineExtensionAmount', (string) $line['line_extension'], ['currencyID' => $currency]);
 
         $item = $this->cac($node, 'Item');
@@ -244,6 +285,13 @@ class UblInvoiceBuilder
 
     private function assertValid(array $invoice): void
     {
+        $type = $invoice['type'] ?? 'invoice';
+        if (!in_array($type, ['invoice', 'credit_note'], true)) {
+            throw new InvalidArgumentException(
+                "Unsupported document type '{$type}' — expected 'invoice' or 'credit_note'."
+            );
+        }
+
         foreach (['number', 'issue_date', 'currency', 'supplier', 'customer', 'lines'] as $key) {
             if (empty($invoice[$key])) {
                 throw new InvalidArgumentException("Missing required invoice field: {$key}");

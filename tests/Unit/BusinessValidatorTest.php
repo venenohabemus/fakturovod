@@ -238,6 +238,51 @@ class BusinessValidatorTest extends TestCase
         $this->assertStringContainsString('žiadne položky', $errors[0]);
     }
 
+    public function test_unknown_document_type_is_reported(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice(['type' => 'proforma']));
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString("Typ dokladu 'proforma'", $errors[0]);
+    }
+
+    public function test_credit_note_type_is_accepted(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice(['type' => 'credit_note']));
+
+        $this->assertSame([], $errors);
+    }
+
+    public function test_exempt_line_without_reason_is_reported(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice([
+            'lines' => [
+                ['name' => 'Poistenie', 'quantity' => '1', 'unit_price' => '100.00', 'vat_rate' => '0', 'vat_category' => 'E'],
+            ],
+        ]));
+
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('vyžaduje dôvod oslobodenia', $errors[0]);
+    }
+
+    public function test_exempt_line_with_reason_passes(): void
+    {
+        $errors = $this->validator->validate($this->validInvoice([
+            'lines' => [
+                [
+                    'name' => 'Poistenie',
+                    'quantity' => '1',
+                    'unit_price' => '100.00',
+                    'vat_rate' => '0',
+                    'vat_category' => 'E',
+                    'vat_exemption_reason' => '§ 37 zákona o DPH',
+                ],
+            ],
+        ]));
+
+        $this->assertSame([], $errors);
+    }
+
     public function test_all_errors_are_collected_at_once(): void
     {
         $errors = $this->validator->validate([
