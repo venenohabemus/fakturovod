@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fakturujete z FoxPro, Accessu či Delphi? Ako splniť e-faktúry 2027 bez výmeny systému | Faktúrovod</title>
+    <meta name="description" content="Systémy na Visual FoxPro, dBase, MS Access, Delphi alebo starom PHP sa e-faktúry samy nenaučia. Ako z nich dostať dáta a splniť zákon od 1. 1. 2027 bez výmeny softvéru.">
+    <link rel="canonical" href="https://fakturovod.sk/clanky/foxpro-access-delphi-peppol.html">
+    <meta property="og:title" content="FoxPro, Access, Delphi a e-faktúry 2027 — bez výmeny systému">
+    <meta property="og:description" content="Ako starý systém napojiť na povinnú e-fakturáciu: export, súbory DBF alebo priamy prístup k databáze.">
+    <meta property="og:type" content="article">
+    <meta property="og:locale" content="sk_SK">
+    <link rel="stylesheet" href="../style.css">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Fakturujete z FoxPro, Accessu či Delphi? Ako splniť e-faktúry 2027 bez výmeny systému",
+        "datePublished": "2026-07-17",
+        "inLanguage": "sk",
+        "author": {"@type": "Organization", "name": "Faktúrovod"}
+    }
+    </script>
+</head>
+<body>
+
+<header class="site">
+    <div class="wrap">
+        <a class="logo" href="../index.html">Faktúro<span>vod</span></a>
+        <nav>
+            <a href="../index.html#ako">Ako to funguje</a>
+            <a href="../index.html#cennik">Cenník</a>
+            <a href="../index.html#kontakt">Kontakt</a>
+        </nav>
+    </div>
+</header>
+
+<article class="post">
+    <h1>Fakturujete z FoxPro, Accessu či Delphi? Ako splniť e-faktúry 2027 bez výmeny systému</h1>
+    <p class="meta">17. júl 2026 · Faktúrovod</p>
+
+    <p>
+        Na Slovensku dodnes spoľahlivo slúžia tisíce fakturačných a skladových systémov postavených
+        v deväťdesiatych a nultých rokoch: Visual FoxPro a dBase, MS Access, Delphi s databázami
+        BDE, Paradox či Firebird, interné systémy na staršom PHP a MySQL, klient-server aplikácie
+        na Oracle. Fungujú roky bez údržby — až teraz im zákon č. 385/2025 Z. z. postavil do cesty
+        povinnosť, ktorú samy nesplnia: od <strong>1. januára 2027</strong> musia byť tuzemské
+        firemné faktúry elektronické, v štruktúrovanom formáte, doručované cez certifikovanú sieť.
+    </p>
+    <p>
+        Dobrá správa: <strong>výmena systému nie je jediná cesta</strong>. Kľúčová otázka totiž
+        neznie „aký starý je váš program", ale „ako sa dostať k jeho dátam". A na tú má prakticky
+        každý starý systém dobrú odpoveď.
+    </p>
+
+    <h2>Tri cesty k dátam starého systému</h2>
+
+    <h2>1. Systém vie exportovať</h2>
+    <p>
+        Mnohé staré programy majú funkciu exportu — do CSV, DBF, XML či „textu pre účtovníčku".
+        Ak áno, máte vyhraté: export je najčistejší zdroj dát. Stačí ho pravidelne ukladať do
+        dohodnutého priečinka a zvyšok (preklad do zákonného formátu, kontrola, doručenie, archív)
+        sa deje mimo vášho systému. <strong>Do programu sa nezasahuje vôbec.</strong>
+    </p>
+
+    <h2>2. Systém ukladá dáta v čitateľných súboroch (DBF)</h2>
+    <p>
+        FoxPro a dBase aplikácie držia dáta v súboroch DBF — a tie sú technicky výborne čitateľné
+        aj po tridsiatich rokoch. To, čo vyzerá ako múzeum, je v skutočnosti výhoda: tabuľky faktúr
+        a ich položiek sa dajú čítať priamo zo súborov, bez akéhokoľvek zásahu do aplikácie.
+        Podobne sa dá pristúpiť k databázam MS Access (.mdb).
+    </p>
+
+    <h2>3. Systém má databázu, ku ktorej sa dá pripojiť</h2>
+    <p>
+        Delphi/Firebird, PHP/MySQL, MSSQL, Oracle — ak váš systém beží nad databázou, dá sa k nej
+        zriadiť <strong>prístup iba na čítanie</strong>. Faktúry sa potom vyberajú priamo zo
+        zdrojových tabuliek. Je to najprácnejší variant na nastavenie, ale funguje aj tam, kde
+        systém nevie exportovať vôbec nič.
+    </p>
+
+    <blockquote>
+        Z praxe: skutočný stav býva veselší než dokumentácia (ktorá zvyčajne neexistuje).
+        Preto sa každé zavedenie začína tým, že si vypýtame 10–20 reálnych faktúr vo formáte,
+        ktorý systém vie dať — na nich sa ukáže všetko: kódovanie diakritiky, formáty dátumov,
+        desatinné čiarky aj to, čo sa za roky do dát nazbieralo.
+    </blockquote>
+
+    <h2>Čo sa deje s dátami potom</h2>
+    <p>
+        Nech je zdroj akýkoľvek, ďalší postup je rovnaký: dáta sa <strong>preložia</strong> do
+        európskeho štandardného formátu, <strong>skontrolujú</strong> (súčty, DPH, IČ DPH, povinné
+        polia — chyby sa hlásia po slovensky, zrozumiteľne), <strong>doručia</strong> cez
+        certifikovaného digitálneho poštiara odberateľovi aj finančnej správe a
+        <strong>archivujú</strong> s dôkazmi o doručení. Prijaté faktúry putujú opačným smerom:
+        z elektronického formátu do čitateľného dokumentu a importného súboru pre váš systém.
+    </p>
+    <p>
+        Fakturantka pritom celý čas robí to, čo robila 15 rokov. Nový je len osud faktúry po
+        stlačení tlačidla.
+    </p>
+
+    <div class="cta-inline">
+        <strong>Máte systém na FoxPro, Accesse, Delphi alebo starom PHP?</strong>
+        Presne také napájame: zavedenie od 1 900 €, prevádzka od 69 €/mes, bez zásahu do vášho
+        programu. <a href="../index.html">Pozrite si postup a cenník →</a>
+    </div>
+
+    <h2>Časová rezerva sa míňa</h2>
+    <p>
+        Zavedenie s testovaním trvá 2–4 týždne — no jeseň 2026 bude patriť firmám, ktoré sa zobudili
+        na poslednú chvíľu, a kapacity dodávateľov sa minú. Kto začne skôr, stihne súbežnú prevádzku
+        (postaru aj ponovom naraz) a január 2027 preňho nebude žiadny prelom. Prvý krok viete
+        spraviť dnes: zistite, čo váš systém vie exportovať.
+    </p>
+
+    <p class="meta">
+        Súvisiace: <a href="e-faktura-stary-system.html">Tri možnosti pre firmy so starým programom</a> ·
+        <a href="povinna-e-fakturacia-2027.html">Čo presne hovorí zákon 385/2025</a>
+    </p>
+</article>
+
+<footer class="site">
+    <div class="wrap">
+        <p class="fine">
+            Informácie majú informatívny charakter a nie sú právnym poradenstvom.
+            Stav k júlu 2026 — overte si aktuálne znenie zákona č. 385/2025 Z. z.
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

@@ -214,7 +214,7 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 - [ ] Produkčné API + white-label Founder aktivované (⚠️ až tu — 12-mes. viazanosť, 90-dňové okno; sledovať plnenie 100 miest)
 - [ ] Paralelná ostrá prevádzka beží
 - [ ] Právne dokumenty + poistenie
-- [ ] Landing page + 2–3 SEO články živé
+- [~] Landing page + 2–3 SEO články: obsah hotový v `site/` (index + 3 články, sitemap, robots; statické HTML/CSS bez závislostí) · [ ] registrácia domény fakturovod.sk · [ ] hosting + nasadenie (pred nasadením: doplniť reálny kontakt a canonical URL — TODO komentáre v HTML)
 - [ ] Referencia/case study z pilota
 
 ### Fáza 3 — škálovanie (2027)
@@ -225,6 +225,7 @@ Multi-tenant (tenant = náš klient alebo white-label IT partner → pod ním ko
 
 ### Denník
 - **07/2026:** Rozhodnutie ísť do projektu. Stratégia: ePošťák sandbox teraz, white-label pri prvom klientovi. — *(sem pripisovať: dátum + čo sa spravilo/rozhodlo)*
+- **17. 7. 2026 (7): Landing page + SEO články.** Statický web v `site/` (čisté HTML+CSS, žiadne závislosti — nasaditeľné kamkoľvek): index podľa zásad zo sekcie 12 (začína dátumom 1. 1. 2027 a rizikom, kotva 3 možností 50 000 € / 8–15 000 € / my, „u vás sa nezmení nič", úprimný filter „pre koho nie sme" — Pohoda/KROS, cenník, FAQ s JSON-LD, námietka „poštár za pár eur"). Články: e-faktura-stary-system (hlavný long-tail), povinna-e-fakturacia-2027 (zákon + termíny), foxpro-access-delphi-peppol (tri cesty k dátam). Sitemap + robots. Pred nasadením: doména, hosting, reálny kontakt (TODO v HTML). Obsah overený v prehliadači.
 - **17. 7. 2026 (6): Posledné fixtures — cudzia mena + zálohová faktúra.** Builder: `vat_currency` + `vat_exchange_rate` (BT-6 TaxCurrencyCode + druhý TaxTotal s DPH prepočítanou do meny DPH, BR-53; kurz = násobiteľ fakturačná mena → mena DPH) a `prepaid_amount` (BT-113 PrepaidAmount, PayableAmount = TaxInclusive − záloha; záloha > total = slovenská chyba). BusinessValidator: faktúra v cudzej mene od SK dodávateľa vyžaduje DPH v EUR + kurz; záloha musí byť nezáporné číslo. Mapper: nové nepovinné polia; vzorové mapovanie číta mena/mena_dph/kurz/zaloha stĺpce s defaultom EUR (spätne kompatibilné). Vzorky `legacy-export-cudzia-mena.csv` (CZK, kurz 0,0397) a `legacy-export-zaloha.csv`. Ostrý E2E: FA-2026-0201 (CZK) aj FA-2026-0301 (záloha) → delivered cez sandbox. 129 testov zelených. **Fixture matica z briefu je tým kompletná.**
 - **17. 7. 2026 (prieskum epostak.sk):** Súhlas zamestnávateľa VYBAVENÝ ✅. Preštudovaný celý web ePošťák → sekcia 5 doplnená: OCR endpoint živý (PDF→UBL v cene), Telegram bot, Connector Studio mapper, roadmapa Q2 účtovnícke exporty. Stratégia potvrdená: sme posledná míľa pre systémy na mieru; malý PDF klient nie je náš zákazník. Kanály dnes reálne: upload v dashboarde + CLI (sync agent = fáza 3, API ingest endpoint zatiaľ nie je). Ďalší krok: PILOT (ručný upload stačí).
 - **15.–16. 7. 2026:** Dev prostredie (PHP 8.3.32 + Composer 2.10.2 cez winget), Laravel 13 skeleton, git repo, initial commit. UBL 2.1 builder + XSD validátor + `php artisan ubl:hello`. Mapping engine: CSV/XML → kanonický model → UBL (`php artisan invoice:convert`), ukážkový legacy export prechádza end-to-end; 36 testov zelených. Prijatý brief v2 — ePošťák Connector ako primárny backend, vlastná značka, white-label stratégia.
