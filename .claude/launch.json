@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "laravel-dev",
-      "runtimeExecutable": "C:\\Users\\marek\\AppData\\Local\\Microsoft\\WinGet\\Packages\\PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe\\php.exe",
+      "runtimeExecutable": "C:\\_app\\php-8.5.4\\php.exe",
       "runtimeArgs": ["artisan", "serve", "--port=8000"],
       "port": 8000
     }

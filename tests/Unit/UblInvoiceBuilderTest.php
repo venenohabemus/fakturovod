@@ -24,7 +24,7 @@ class UblInvoiceBuilderTest extends TestCase
                 'zip' => '811 01',
                 'country' => 'SK',
                 'company_id' => '12345678',
-                'vat_id' => 'SK2020123456',
+                'vat_id' => 'SK2020123457',
             ],
             'customer' => [
                 'name' => 'Odberateľ a.s.',
@@ -143,7 +143,7 @@ class UblInvoiceBuilderTest extends TestCase
         $supplier = '/inv:Invoice/cac:AccountingSupplierParty/cac:Party';
         $this->assertSame('Dodávateľ s.r.o.', $this->value($xpath, "{$supplier}/cac:PartyName/cbc:Name"));
         $this->assertSame('SK', $this->value($xpath, "{$supplier}/cac:PostalAddress/cac:Country/cbc:IdentificationCode"));
-        $this->assertSame('SK2020123456', $this->value($xpath, "{$supplier}/cac:PartyTaxScheme/cbc:CompanyID"));
+        $this->assertSame('SK2020123457', $this->value($xpath, "{$supplier}/cac:PartyTaxScheme/cbc:CompanyID"));
         $this->assertSame('12345678', $this->value($xpath, "{$supplier}/cac:PartyLegalEntity/cbc:CompanyID"));
 
         $customer = '/inv:Invoice/cac:AccountingCustomerParty/cac:Party';

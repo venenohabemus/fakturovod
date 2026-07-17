@@ -126,18 +126,24 @@ class DashboardTest extends TestCase
     public function test_error_queue_lists_all_collected_errors(): void
     {
         $invoice = Invoice::receive(['external_id' => 'FA-ERR', 'source_payload' => [], 'mapping_definition' => []]);
-        $invoice->update(['validation_report' => ['mapping' => [
-            "Hodnota '99.07.2026' poľa 'issue_date' nezodpovedá formátu dátumu 'd.m.Y' (riadok 2).",
-            "Chýba povinná hodnota poľa 'quantity' na položke faktúry (riadok 3).",
-        ]]]);
-        $invoice->fail('Faktúra obsahuje 2 chýb.');
+        $invoice->update(['validation_report' => [
+            'mapping' => [
+                "Hodnota '99.07.2026' poľa 'issue_date' nezodpovedá formátu dátumu 'd.m.Y' (riadok 2).",
+                "Chýba povinná hodnota poľa 'quantity' na položke faktúry (riadok 3).",
+            ],
+            'business' => [
+                "IČ DPH odberateľa 'SK2020333333' nie je platné slovenské IČ DPH (SK + 10 číslic deliteľných 11) — skontrolujte preklep.",
+            ],
+        ]]);
+        $invoice->fail('Faktúra obsahuje 3 chyby.');
 
         $this->actingAs($this->user)
             ->get('/chyby')
             ->assertOk()
             ->assertSee('FA-ERR')
             ->assertSee("nezodpovedá formátu dátumu")
-            ->assertSee("Chýba povinná hodnota poľa 'quantity'");
+            ->assertSee("Chýba povinná hodnota poľa 'quantity'")
+            ->assertSee('nie je platné slovenské IČ DPH');
     }
 
     public function test_retry_from_dashboard_reprocesses_invoice(): void
@@ -147,7 +153,7 @@ class DashboardTest extends TestCase
         $file = UploadedFile::fake()->createWithContent(
             'export.csv',
             "cislo;vystavena;splatnost;odberatel;ico_odb;icdph_odb;ulica;mesto;psc;polozka;mj;mnozstvo;cena;dph\n"
-            ."FA-R-1;99.07.2026;15.07.2026;Alfa;1;SK1;U;M;811;Tovar;ks;1;10,00;23\n"
+            ."FA-R-1;99.07.2026;15.07.2026;Alfa;11111111;SK2020111115;U;M;811;Tovar;ks;1;10,00;23\n"
         );
         $this->actingAs($this->user)->post('/faktury/import', ['export' => $file, 'mapping_id' => $mapping->id]);
 

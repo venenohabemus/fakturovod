@@ -29,7 +29,7 @@ class UblXsdValidationTest extends TestCase
                 'zip' => '811 01',
                 'country' => 'SK',
                 'company_id' => '12345678',
-                'vat_id' => 'SK2020123456',
+                'vat_id' => 'SK2020123457',
             ],
             'customer' => [
                 'name' => 'Odberateľ a.s.',
@@ -37,7 +37,7 @@ class UblXsdValidationTest extends TestCase
                 'city' => 'Košice',
                 'zip' => '040 01',
                 'country' => 'SK',
-                'vat_id' => 'SK2020654321',
+                'vat_id' => 'SK2020654328',
             ],
             'lines' => [
                 ['name' => 'Konzultačné služby', 'quantity' => '10', 'unit' => 'HUR', 'unit_price' => '50.00', 'vat_rate' => '23'],

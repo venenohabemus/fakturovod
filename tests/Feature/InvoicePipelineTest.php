@@ -93,14 +93,14 @@ class InvoicePipelineTest extends TestCase
         $this->assertSame('FA-2026-0101', $first->number);
         $this->assertSame('0245:0000000002', $first->receiver_peppol_id);
         $this->assertStringContainsString('<cbc:ID>FA-2026-0101</cbc:ID>', $first->ubl_xml);
-        $this->assertSame(['xsd' => []], $first->validation_report);
+        $this->assertSame(['business' => [], 'xsd' => []], $first->validation_report);
     }
 
     public function test_broken_invoice_fails_without_blocking_the_rest(): void
     {
         $csv = "cislo;vystavena;splatnost;odberatel;ico_odb;icdph_odb;ulica;mesto;psc;polozka;mj;mnozstvo;cena;dph\n"
             ."FA-X-1;99.07.2026;15.07.2026;Alfa;1;SK1;U;M;811;Tovar;ks;1;10,00;23\n"
-            ."FA-X-2;01.07.2026;15.07.2026;Beta;2;SK2;U;M;811;Tovar;ks;2;20,00;23\n";
+            ."FA-X-2;01.07.2026;15.07.2026;Beta;22222222;SK2020222226;U;M;811;Tovar;ks;2;20,00;23\n";
 
         $pipeline = $this->pipeline();
         $pipeline->ingest($csv, $this->definition());
@@ -117,6 +117,31 @@ class InvoicePipelineTest extends TestCase
         $healthy = Invoice::where('external_id', 'FA-X-2')->first();
         $this->assertSame(InvoiceStatus::Sent, $healthy->status);
         $this->assertCount(1, $this->postar->sent);
+    }
+
+    public function test_business_validation_failure_collects_all_errors(): void
+    {
+        // Maps cleanly, but: VAT id typo (not divisible by 11) + 20 % is not
+        // a Slovak VAT rate. Both must surface in one pass.
+        $csv = "cislo;vystavena;splatnost;odberatel;ico_odb;icdph_odb;ulica;mesto;psc;polozka;mj;mnozstvo;cena;dph\n"
+            ."FA-B-1;01.07.2026;15.07.2026;Alfa;11111111;SK2020111116;U;M;811;Tovar;ks;1;10,00;20\n";
+
+        $pipeline = $this->pipeline();
+        $pipeline->ingest($csv, $this->definition());
+
+        $invoice = Invoice::first();
+        $pipeline->process($invoice);
+
+        $this->assertSame(InvoiceStatus::Failed, $invoice->status);
+        $this->assertStringContainsString('Biznis validácia', $invoice->error_message);
+
+        $errors = $invoice->validation_report['business'];
+        $this->assertCount(2, $errors);
+        $this->assertStringContainsString("IČ DPH odberateľa 'SK2020111116'", $errors[0]);
+        $this->assertStringContainsString('20 % neplatí na Slovensku', $errors[1]);
+
+        // Fixing the export and retrying gets the invoice through.
+        $this->assertNull($invoice->ubl_xml);
     }
 
     public function test_postar_outage_marks_invoice_failed_and_retry_recovers(): void

@@ -27,7 +27,7 @@
                 </header>
 
                 @php($report = $invoice->validation_report ?? [])
-                @php($allErrors = array_merge($report['mapping'] ?? [], $report['xsd'] ?? [], $report['postar'] ?? []))
+                @php($allErrors = array_merge($report['mapping'] ?? [], $report['business'] ?? [], $report['xsd'] ?? [], $report['postar'] ?? []))
 
                 @if ($allErrors !== [])
                     <ul>

@@ -1,4 +1,4 @@
 cislo;vystavena;splatnost;odberatel;ico_odb;icdph_odb;ulica;mesto;psc;polozka;mj;mnozstvo;cena;dph
-FA-2026-0101;01.07.2026;15.07.2026;Alfa Trade s.r.o.;11111111;SK2020111111;Obchodná 5;Bratislava;811 06;Konzultácie;hod;12;45,00;23
-FA-2026-0101;01.07.2026;15.07.2026;Alfa Trade s.r.o.;11111111;SK2020111111;Obchodná 5;Bratislava;811 06;Cestovné náklady;ks;1;120,50;23
-FA-2026-0102;03.07.2026;17.07.2026;Beta Logistik a.s.;22222222;SK2020222222;Prístavná 12;Košice;040 01;Preprava tovaru;ks;4;250,00;23
+FA-2026-0101;01.07.2026;15.07.2026;Alfa Trade s.r.o.;11111111;SK2020111115;Obchodná 5;Bratislava;811 06;Konzultácie;hod;12;45,00;23
+FA-2026-0101;01.07.2026;15.07.2026;Alfa Trade s.r.o.;11111111;SK2020111115;Obchodná 5;Bratislava;811 06;Cestovné náklady;ks;1;120,50;23
+FA-2026-0102;03.07.2026;17.07.2026;Beta Logistik a.s.;22222222;SK2020222226;Prístavná 12;Košice;040 01;Preprava tovaru;ks;4;250,00;23

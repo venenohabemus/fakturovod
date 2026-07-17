@@ -13,6 +13,7 @@ use App\Services\Postar\PostarAdapterInterface;
 use App\Services\Postar\PostarException;
 use App\Services\Ubl\UblInvoiceBuilder;
 use App\Services\Ubl\XsdValidator;
+use App\Services\Validation\BusinessValidator;
 
 /**
  * Outbound pipeline over the invoice state machine:
@@ -31,6 +32,7 @@ class InvoicePipeline
         private readonly InvoiceMapper $mapper,
         private readonly UblInvoiceBuilder $builder,
         private readonly PostarAdapterInterface $postar,
+        private readonly BusinessValidator $businessValidator = new BusinessValidator(),
     ) {
     }
 
@@ -179,6 +181,24 @@ class InvoicePipeline
 
     private function stepValidate(Invoice $invoice): void
     {
+        // Business rules run on the canonical model, before UBL is built —
+        // they collect everything at once and speak Slovak, unlike the XSD.
+        $businessErrors = $this->businessValidator->validate($invoice->canonical ?? []);
+        if ($businessErrors !== []) {
+            $invoice->update([
+                'validation_report' => array_merge(
+                    $invoice->validation_report ?? [],
+                    ['business' => $businessErrors]
+                ),
+            ]);
+            $invoice->fail(
+                'Biznis validácia: '.MappingException::withErrors($businessErrors)->getMessage(),
+                ['errors' => $businessErrors]
+            );
+
+            return;
+        }
+
         try {
             $xml = $this->builder->build($invoice->canonical);
         } catch (\InvalidArgumentException $exception) {
@@ -194,7 +214,10 @@ class InvoicePipeline
 
         $invoice->update([
             'ubl_xml' => $xml,
-            'validation_report' => ['xsd' => $errors],
+            'validation_report' => array_merge(
+                $invoice->validation_report ?? [],
+                ['business' => [], 'xsd' => $errors]
+            ),
         ]);
 
         if ($errors !== []) {
