@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Faktúrovod — KoSIT validator scenario configuration (layer 2 validation).
+
+  Validates outbound UBL 2.1 invoices against the EN 16931 CEN schematron
+  and the Peppol BIS Billing 3.0 rules. Run as an HTTP sidecar daemon via
+  `php artisan schematron:serve` (see App\Console\Commands\SchematronServe).
+
+  Sources (recorded in CLAUDE.md):
+  - KoSIT validator v1.6.2  https://github.com/itplr-kosit/validator
+  - EN16931-UBL-validation.xslt from en16931-ubl-1.3.16.zip
+    https://github.com/ConnectingEurope/eInvoicing-EN16931/releases
+  - PEPPOL-EN16931-UBL.xslt (stylesheet-ubl.xslt, BIS 3.0)
+    https://github.com/OpenPEPPOL/peppol-bis-invoice-3
+  - report.xsl = default-report.xsl from validator-configuration-xrechnung
+-->
+<scenarios xmlns="http://www.xoev.de/de/validator/framework/1/scenarios"
+  frameworkVersion="1.0.0">
+  <name>Faktúrovod — EN 16931 + Peppol BIS Billing 3.0 (UBL Invoice)</name>
+  <author>Faktúrovod</author>
+  <date>2026-07-17</date>
+  <description>
+    <p>Validates UBL 2.1 Invoices with the Peppol BIS Billing 3.0
+      customization against CEN EN 16931 schematron and Peppol rules.</p>
+  </description>
+
+  <scenario>
+    <name>Peppol BIS Billing 3.0 (UBL Invoice)</name>
+    <description>
+      <p>UBL 2.1 Invoice XSD, EN16931:2017 CEN schematron, Peppol BIS 3.0 schematron.</p>
+    </description>
+    <namespace prefix="cbc">urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2</namespace>
+    <namespace prefix="invoice">urn:oasis:names:specification:ubl:schema:xsd:Invoice-2</namespace>
+    <namespace prefix="rep">http://www.xoev.de/de/validator/varl/1</namespace>
+
+    <match>exists(/invoice:Invoice/cbc:CustomizationID[starts-with(., 'urn:cen.eu:en16931:2017')])</match>
+
+    <validateWithXmlSchema>
+      <resource>
+        <name>XML Schema for UBL 2.1 Invoice</name>
+        <location>resources/schemas/ubl-2.1/maindoc/UBL-Invoice-2.1.xsd</location>
+      </resource>
+    </validateWithXmlSchema>
+
+    <validateWithSchematron>
+      <resource>
+        <name>Schematron rules for EN16931 (UBL)</name>
+        <location>tools/schematron/resources/EN16931-UBL-validation.xslt</location>
+      </resource>
+    </validateWithSchematron>
+    <validateWithSchematron>
+      <resource>
+        <name>Schematron rules for Peppol BIS Billing 3.0 (UBL)</name>
+        <location>tools/schematron/resources/PEPPOL-EN16931-UBL.xslt</location>
+      </resource>
+    </validateWithSchematron>
+
+    <createReport>
+      <resource>
+        <name>Validation report</name>
+        <location>tools/schematron/resources/report.xsl</location>
+      </resource>
+    </createReport>
+
+    <acceptMatch>/rep:report/rep:assessment[1]/rep:accept[1]</acceptMatch>
+  </scenario>
+
+  <!-- In case no scenario matched -->
+  <noScenarioReport>
+    <resource>
+      <name>Default Report</name>
+      <location>tools/schematron/resources/report.xsl</location>
+    </resource>
+  </noScenarioReport>
+</scenarios>

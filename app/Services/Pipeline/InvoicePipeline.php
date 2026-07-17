@@ -16,6 +16,8 @@ use App\Services\Postar\PostarException;
 use App\Services\Ubl\UblInvoiceBuilder;
 use App\Services\Ubl\XsdValidator;
 use App\Services\Validation\BusinessValidator;
+use App\Services\Validation\SchematronUnavailableException;
+use App\Services\Validation\SchematronValidator;
 
 /**
  * Outbound pipeline over the invoice state machine:
@@ -36,6 +38,7 @@ class InvoicePipeline
         private readonly PostarAdapterInterface $postar,
         private readonly BusinessValidator $businessValidator = new BusinessValidator(),
         private readonly InvoiceArchiver $archiver = new InvoiceArchiver(),
+        private readonly SchematronValidator $schematron = new SchematronValidator(),
     ) {
     }
 
@@ -235,7 +238,46 @@ class InvoicePipeline
             return;
         }
 
-        $invoice->transitionTo(InvoiceStatus::Validated, 'XSD validácia prešla.');
+        // Layer 2: EN 16931 + Peppol schematron via the KoSIT sidecar. When
+        // the sidecar is down we note it and continue — the poštár validates
+        // too, so nothing slips through; we just catch it later/in English.
+        if (!$this->schematron->enabled()) {
+            $invoice->transitionTo(InvoiceStatus::Validated, 'XSD validácia prešla.');
+
+            return;
+        }
+
+        try {
+            $schematronErrors = $this->schematron->validate($xml);
+        } catch (SchematronUnavailableException $exception) {
+            $invoice->events()->create([
+                'from_status' => $invoice->status->value,
+                'to_status' => $invoice->status->value,
+                'message' => 'Schematron preskočený: '.$exception->getMessage(),
+            ]);
+            $invoice->transitionTo(InvoiceStatus::Validated, 'XSD validácia prešla (schematron preskočený).');
+
+            return;
+        }
+
+        $invoice->update([
+            'validation_report' => array_merge(
+                $invoice->validation_report ?? [],
+                ['schematron' => $schematronErrors]
+            ),
+        ]);
+
+        if ($schematronErrors !== []) {
+            $invoice->fail(
+                'Schematron validácia (EN 16931 / Peppol) zlyhala — '
+                .count($schematronErrors).' '.(count($schematronErrors) === 1 ? 'pravidlo' : (count($schematronErrors) <= 4 ? 'pravidlá' : 'pravidiel')).' porušených.',
+                ['errors' => $schematronErrors]
+            );
+
+            return;
+        }
+
+        $invoice->transitionTo(InvoiceStatus::Validated, 'XSD aj schematron validácia prešla.');
     }
 
     private function stepSend(Invoice $invoice): void

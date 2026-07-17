@@ -49,6 +49,7 @@ class InvoiceAlertMail extends Mailable
             $report['mapping'] ?? [],
             $report['business'] ?? [],
             $report['xsd'] ?? [],
+            $report['schematron'] ?? [],
             $report['postar'] ?? [],
         );
     }

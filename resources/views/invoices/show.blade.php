@@ -32,7 +32,7 @@
     </div>
 
     @php($report = $invoice->validation_report ?? [])
-    @php($reportedErrors = array_merge($report['mapping'] ?? [], $report['business'] ?? [], $report['xsd'] ?? [], $report['postar'] ?? []))
+    @php($reportedErrors = array_merge($report['mapping'] ?? [], $report['business'] ?? [], $report['xsd'] ?? [], $report['schematron'] ?? [], $report['postar'] ?? []))
 
     @if ($invoice->error_message !== null || $reportedErrors !== [])
         <div class="card">
@@ -41,7 +41,7 @@
                 <div class="flash flash-error">{{ $invoice->error_message }}</div>
             @endif
 
-            @foreach (['mapping' => 'Chyby mapovania', 'business' => 'Biznis kontroly (SK)', 'xsd' => 'XSD validácia', 'postar' => 'Validácia poštára (Peppol)'] as $section => $heading)
+            @foreach (['mapping' => 'Chyby mapovania', 'business' => 'Biznis kontroly (SK)', 'xsd' => 'XSD validácia', 'schematron' => 'Schematron (EN 16931 / Peppol)', 'postar' => 'Validácia poštára (Peppol)'] as $section => $heading)
                 @if (!empty($invoice->validation_report[$section]))
                     <h3 style="font-size:0.95rem; margin:0.75rem 0 0.25rem;">{{ $heading }}</h3>
                     <ul>
